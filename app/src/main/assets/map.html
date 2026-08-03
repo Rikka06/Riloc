@@ -16,7 +16,7 @@
             width: 100%;
             margin: 0;
             padding: 0;
-            background-color: #EFEFEF;
+            background-color: #F5F5F5;
             overflow: hidden;
             position: relative;
         }
@@ -28,44 +28,11 @@
             bottom: 0;
             width: 100vw;
             height: 100vh;
-            min-height: 100vh;
             background-color: #F5F5F5;
             z-index: 1;
         }
         .amap-logo, .amap-copyright, .leaflet-control-attribution {
             display: none !important;
-        }
-        /* On-Screen Visual Debug Overlay Banner */
-        #debug-overlay {
-            position: absolute;
-            top: 70px;
-            left: 12px;
-            right: 12px;
-            z-index: 99999;
-            background: rgba(30, 30, 30, 0.88);
-            color: #00FF66;
-            font-family: monospace;
-            font-size: 11px;
-            padding: 10px 12px;
-            border-radius: 12px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-            pointer-events: auto;
-            backdrop-filter: blur(8px);
-            display: block;
-            max-height: 140px;
-            overflow-y: auto;
-            word-break: break-all;
-        }
-        #debug-overlay.error {
-            background: rgba(220, 38, 38, 0.92);
-            color: #FFFFFF;
-        }
-        #debug-overlay .title {
-            font-weight: bold;
-            margin-bottom: 4px;
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
         }
     </style>
 </head>
@@ -73,99 +40,65 @@
 
 <div id="container"></div>
 
-<!-- Visual Debug & Status Banner -->
-<div id="debug-overlay">
-    <div class="title">
-        <span>🗺️ 地图引擎状态日志</span>
-        <span onclick="this.parentNode.parentNode.style.display='none'" style="cursor:pointer;padding:0 4px;">✕</span>
-    </div>
-    <div id="debug-logs">正在初始化 WebView 界面…</div>
-</div>
-
 <script src="leaflet.js"></script>
 
 <script>
-    var map, polyline;
-    var startMarker, endMarker;
+    var map = null;
+    var leafletMap = null;
+    var polyline = null;
+    var startMarker = null, endMarker = null;
+    var leafletMarker = null;
     var isDrawingMode = false;
     var drawPath = [];
-    var longPressTimer;
-    var touchStartX, touchStartY;
-    var autoSuggest;
+    var longPressTimer = null;
+    var fallbackTimer = null;
+    var touchStartX = 0, touchStartY = 0;
+    var autoSuggest = null;
     var isAmapLoaded = false;
-    var leafletMap, leafletMarker;
+    var currentLat = 29.50812, currentLng = 106.49220; // Default center
 
     var iconStartSvg = '<div style="width:30px;height:40px;"><svg viewBox="0 0 24 24" width="30" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 16 1-3 8-10.75 8-16 0-4.42-3.58-8-8-8z" fill="#1E88E5"/><circle cx="12" cy="8" r="3" fill="#FFFFFF"/></svg></div>';
     var iconEndSvg = '<div style="width:30px;height:40px;"><svg viewBox="0 0 24 24" width="30" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 16 1-3 8-10.75 8-16 0-4.42-3.58-8-8-8z" fill="#E53935"/><circle cx="12" cy="8" r="3" fill="#FFFFFF"/></svg></div>';
 
-    function logStatus(msg, isErr) {
-        var el = document.getElementById('debug-logs');
-        var containerEl = document.getElementById('debug-overlay');
-        if (el) {
-            var timeStr = new Date().toTimeString().split(' ')[0];
-            el.innerHTML += '<br/>[' + timeStr + '] ' + msg;
-            if (isErr && containerEl) {
-                containerEl.className = 'error';
-            }
-        }
-    }
-
-    // Global JS Error Catchers
-    window.onerror = function(msg, url, lineNo, columnNo, error) {
-        logStatus('❌ [JS错误] ' + msg + ' (Line ' + lineNo + ')', true);
-        return false;
-    };
-
-    window.onunhandledrejection = function(event) {
-        logStatus('❌ [Promise异常] ' + event.reason, true);
-    };
-
     window.onload = function() {
-        logStatus('✅ DOM 加载完成，正在获取高德配置…');
         var key = '8325164e247e15eea68b59e89200988b';
         var secret = '';
         if (window.Android) {
             try {
                 var config = window.Android.getAMapConfig();
-                logStatus('📱 从 Android 获取 Key 配置: ' + config);
                 if (config) {
                     var parts = config.split('|');
                     if (parts[0] && parts[0].trim().length > 0) key = parts[0].trim();
                     if (parts[1] && parts[1].trim().length > 0) secret = parts[1].trim();
                 }
-            } catch(e) {
-                logStatus('⚠️ 读取 Android 配置异常: ' + e.message, true);
-            }
-        } else {
-            logStatus('ℹ️ 独立模式运行 (未检测到 Android 桥接)');
+            } catch(e) {}
         }
         
         startLoadAMap(key, secret);
 
-        // Fallback timer if AMap fails
-        setTimeout(function() {
-            if (!isAmapLoaded && !leafletMap) {
-                logStatus('⏱️ 高德 2.0 加载超时，启动离线 HD 矢量图层…');
+        // Fail-safe timer: ONLY run if AMap is NOT loaded
+        fallbackTimer = setTimeout(function() {
+            if (!isAmapLoaded && !map && !leafletMap) {
                 initLeafletFallback();
             }
-        }, 1500);
+        }, 2000);
     };
 
     function startLoadAMap(key, secret) {
-        logStatus('🚀 正在请求高德 2.0 脚本: key=' + key.substring(0,6) + '...');
         if (secret) {
             window._AMapSecurityConfig = { securityJsCode: secret };
         }
         var script = document.createElement('script');
         script.src = "https://webapi.amap.com/maps?v=2.0&key=" + key + "&plugin=AMap.AutoComplete";
         script.onload = function() {
-            logStatus('📥 高德 2.0 脚本下载完成，正在实例化 Map…');
-            if (typeof AMap !== 'undefined' && AMap.Map) {
+            if (typeof AMap !== 'undefined' && AMap.Map && !leafletMap) {
                 try {
+                    clearTimeout(fallbackTimer);
                     isAmapLoaded = true;
+
                     map = new AMap.Map('container', {
                         zoom: 16,
-                        center: [116.4074, 39.9042],
+                        center: [currentLng, currentLat],
                         resizeEnable: true,
                         rotateEnable: true,
                         pitchEnable: true
@@ -174,7 +107,6 @@
                     autoSuggest = new AMap.AutoComplete({ city: '全国' });
 
                     map.on('complete', function() {
-                        logStatus('🎉 高德 3D 矢量地图渲染成功！');
                         if (window.Android) window.Android.onMapReady();
                     });
 
@@ -183,54 +115,49 @@
                     container.addEventListener('touchmove', onTouchMove, {passive: false});
                     container.addEventListener('touchend', onTouchEnd, {passive: false});
                 } catch(err) {
-                    logStatus('❌ 高德 Map 实例化失败: ' + err.message, true);
                     initLeafletFallback();
                 }
             } else {
-                logStatus('❌ AMap 对象未定义', true);
                 initLeafletFallback();
             }
         };
         script.onerror = function(e) {
-            logStatus('❌ 高德 2.0 脚本网络下载失败（可能 Key 无效或网络被拦）', true);
             initLeafletFallback();
         };
         document.head.appendChild(script);
     }
 
     function initLeafletFallback() {
-        if (leafletMap || isAmapLoaded) return;
-        logStatus('🍃 正在渲染 HD 矢量 Tile 托底图层…');
-        try {
-            leafletMap = L.map('container', { zoomControl: false }).setView([39.9042, 116.4074], 16);
+        // STRICT MUTUAL EXCLUSION: If AMap or Leaflet is already active, NEVER initialize Leaflet
+        if (leafletMap || isAmapLoaded || map) return;
 
-            L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', {
-                subdomains: ['1', '2', '3', '4'],
-                maxZoom: 19,
-                minZoom: 3
-            }).addTo(leafletMap);
+        clearTimeout(fallbackTimer);
+        document.getElementById('container').innerHTML = '';
+        leafletMap = L.map('container', { zoomControl: false }).setView([currentLat, currentLng], 16);
 
-            var startIcon = L.divIcon({
-                html: iconStartSvg,
-                className: '',
-                iconSize: [30, 40],
-                iconAnchor: [15, 40]
-            });
+        L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', {
+            subdomains: ['1', '2', '3', '4'],
+            maxZoom: 19,
+            minZoom: 3
+        }).addTo(leafletMap);
 
-            leafletMarker = L.marker([39.9042, 116.4074], { icon: startIcon }).addTo(leafletMap);
+        var startIcon = L.divIcon({
+            html: iconStartSvg,
+            className: '',
+            iconSize: [30, 40],
+            iconAnchor: [15, 40]
+        });
 
-            leafletMap.on('click', function(e) {
-                var lat = e.latlng.lat;
-                var lng = e.latlng.lng;
-                leafletMarker.setLatLng([lat, lng]);
-                if (window.Android) window.Android.onPointSelected(lat, lng, "地图选点");
-            });
+        leafletMarker = L.marker([currentLat, currentLng], { icon: startIcon }).addTo(leafletMap);
 
-            logStatus('🎉 HD 矢量地图渲染成功！');
-            if (window.Android) window.Android.onMapReady();
-        } catch(e) {
-            logStatus('❌ 托底渲染异常: ' + e.message, true);
-        }
+        leafletMap.on('click', function(e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            leafletMarker.setLatLng([lat, lng]);
+            if (window.Android) window.Android.onPointSelected(lat, lng, "地图选点");
+        });
+
+        if (window.Android) window.Android.onMapReady();
     }
 
     function jsFetchTips(keyword) {
@@ -252,7 +179,7 @@
 
     function jsSetDrawingMode(enable) {
         isDrawingMode = enable;
-        if (isAmapLoaded && map) {
+        if (map) {
             map.setStatus({ dragEnable: !enable, zoomEnable: !enable });
             jsClearRoute();
         } else if (leafletMap) {
@@ -268,17 +195,21 @@
         touchStartY = touch.clientY;
         if (isDrawingMode) {
             drawPath = [];
-            if (polyline) map.remove(polyline);
-            if (startMarker) map.remove(startMarker);
-            if (endMarker) map.remove(endMarker);
-            polyline = new AMap.Polyline({ path: [], strokeColor: "#1E88E5", strokeWeight: 6, strokeOpacity: 0.9, lineJoin: 'round' });
-            map.add(polyline);
+            if (polyline && map) map.remove(polyline);
+            if (startMarker && map) map.remove(startMarker);
+            if (endMarker && map) map.remove(endMarker);
+            if (map) {
+                polyline = new AMap.Polyline({ path: [], strokeColor: "#1E88E5", strokeWeight: 6, strokeOpacity: 0.9, lineJoin: 'round' });
+                map.add(polyline);
+            }
         } else {
             clearTimeout(longPressTimer);
             longPressTimer = setTimeout(function() {
-                var lnglat = map.containerToLngLat(new AMap.Pixel(touchStartX, touchStartY));
-                if (window.Android) window.Android.onPointSelected(lnglat.getLat(), lnglat.getLng(), "地图选点");
-                jsSetStart(lnglat.getLat(), lnglat.getLng(), "选点");
+                if (map) {
+                    var lnglat = map.containerToLngLat(new AMap.Pixel(touchStartX, touchStartY));
+                    if (window.Android) window.Android.onPointSelected(lnglat.getLat(), lnglat.getLng(), "地图选点");
+                    jsSetStart(lnglat.getLat(), lnglat.getLng(), "选点");
+                }
             }, 500);
         }
     }
@@ -287,13 +218,15 @@
         var touch = e.touches[0];
         if (isDrawingMode) {
             e.preventDefault();
-            var lnglat = map.containerToLngLat(new AMap.Pixel(touch.clientX, touch.clientY));
-            if (drawPath.length > 0) {
-                var last = drawPath[drawPath.length - 1];
-                if (Math.abs(last.lng - lnglat.getLng()) < 0.0001 && Math.abs(last.lat - lnglat.getLat()) < 0.0001) return;
+            if (map) {
+                var lnglat = map.containerToLngLat(new AMap.Pixel(touch.clientX, touch.clientY));
+                if (drawPath.length > 0) {
+                    var last = drawPath[drawPath.length - 1];
+                    if (Math.abs(last.lng - lnglat.getLng()) < 0.0001 && Math.abs(last.lat - lnglat.getLat()) < 0.0001) return;
+                }
+                drawPath.push({lat: lnglat.getLat(), lng: lnglat.getLng()});
+                polyline.setPath(drawPath.map(p => [p.lng, p.lat]));
             }
-            drawPath.push({lat: lnglat.getLat(), lng: lnglat.getLng()});
-            polyline.setPath(drawPath.map(p => [p.lng, p.lat]));
         } else {
             if (Math.abs(touch.clientX - touchStartX) > 10 || Math.abs(touch.clientY - touchStartY) > 10) {
                 clearTimeout(longPressTimer);
@@ -305,15 +238,19 @@
         clearTimeout(longPressTimer);
         if (isDrawingMode && drawPath.length > 2) {
             var startP = drawPath[0], endP = drawPath[drawPath.length-1];
-            startMarker = new AMap.Marker({ position: [startP.lng, startP.lat], content: iconStartSvg, offset: new AMap.Pixel(-15, -40) });
-            endMarker = new AMap.Marker({ position: [endP.lng, endP.lat], content: iconEndSvg, offset: new AMap.Pixel(-15, -40) });
-            map.add([startMarker, endMarker]);
+            if (map) {
+                startMarker = new AMap.Marker({ position: [startP.lng, startP.lat], content: iconStartSvg, offset: new AMap.Pixel(-15, -40) });
+                endMarker = new AMap.Marker({ position: [endP.lng, endP.lat], content: iconEndSvg, offset: new AMap.Pixel(-15, -40) });
+                map.add([startMarker, endMarker]);
+            }
             if (window.Android) window.Android.onPathDrawn(drawPath.map(p => p.lat.toFixed(6) + "," + p.lng.toFixed(6)).join("|"));
         }
     }
 
     function jsSetStart(lat, lng, name) {
-        if (isAmapLoaded && map) {
+        currentLat = lat;
+        currentLng = lng;
+        if (map) {
             if (startMarker) map.remove(startMarker);
             startMarker = new AMap.Marker({ position: [lng, lat], content: iconStartSvg, offset: new AMap.Pixel(-15, -40) });
             map.add(startMarker);
@@ -325,7 +262,7 @@
     }
 
     function jsSetEnd(lat, lng) {
-        if (isAmapLoaded && map) {
+        if (map) {
             if (endMarker) map.remove(endMarker);
             endMarker = new AMap.Marker({ position: [lng, lat], content: iconEndSvg, offset: new AMap.Pixel(-15, -40) });
             map.add(endMarker);
@@ -333,18 +270,16 @@
     }
 
     function jsClearRoute() {
-        if (isAmapLoaded && map) {
+        if (map) {
             if (polyline) map.remove(polyline);
             if (startMarker) map.remove(startMarker);
             if (endMarker) map.remove(endMarker);
-        } else if (leafletMap) {
-            if (leafletPolyline) leafletMap.removeLayer(leafletPolyline);
         }
         drawPath = [];
     }
 
     function jsSetMapStyle(styleType) {
-        if (isAmapLoaded && map) {
+        if (map) {
             if (styleType === 'amap_sat') {
                 map.setLayers([new AMap.TileLayer.Satellite()]);
             } else {
