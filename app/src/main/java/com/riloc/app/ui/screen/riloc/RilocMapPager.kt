@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,7 +61,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -450,23 +453,61 @@ fun RilocMapPager(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MiuixChip("静态", selected = currentMode == MapMode.STATIC) {
-                            currentMode = MapMode.STATIC
-                            engine.stop()
-                            routeEngine.stop()
-                        }
-                        MiuixChip("摇杆", selected = currentMode == MapMode.JOYSTICK) {
-                            currentMode = MapMode.JOYSTICK
-                            routeEngine.stop()
-                        }
-                        MiuixChip("漫游", selected = currentMode == MapMode.ROUTE) {
-                            currentMode = MapMode.ROUTE
-                            engine.stop()
+                    // Segmented Capsule Control for MapMode
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .padding(end = 12.dp)
+                            .clip(CircleShape)
+                            .background(colorScheme.surfaceContainerHigh),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        MapMode.entries.forEach { mode ->
+                            val selected = (currentMode == mode)
+                            val label = when (mode) {
+                                MapMode.STATIC -> "静态"
+                                MapMode.JOYSTICK -> "摇杆"
+                                MapMode.ROUTE -> "漫游"
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .padding(3.dp)
+                                    .clip(CircleShape)
+                                    .background(if (selected) colorScheme.primary else Color.Transparent)
+                                    .clickable {
+                                        currentMode = mode
+                                        when (mode) {
+                                            MapMode.STATIC -> {
+                                                engine.stop()
+                                                routeEngine.stop()
+                                            }
+                                            MapMode.JOYSTICK -> {
+                                                routeEngine.stop()
+                                            }
+                                            MapMode.ROUTE -> {
+                                                engine.stop()
+                                            }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = TextStyle(
+                                        fontSize = 13.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selected) Color.White else colorScheme.onSurfaceVariantSummary,
+                                    ),
+                                )
+                            }
                         }
                     }
 
                     FloatingActionButton(
+
                         onClick = {
                             isPlaying = !isPlaying
                             Prefs.setPlaying(isPlaying)
