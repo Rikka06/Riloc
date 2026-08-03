@@ -157,6 +157,12 @@ fun RilocMapPager(
                     routeWaypoints.addAll(points)
                     routeEngine.setWaypoints(points)
                 }
+            },
+            onStatusCallback = { status ->
+                addressName = "[Riloc] $status"
+                if (status.startsWith("ERR:") || status.startsWith("FALLBACK:")) {
+                    Toast.makeText(context, status, Toast.LENGTH_LONG).show()
+                }
             }
         )
     }
@@ -226,6 +232,10 @@ fun RilocMapPager(
         AndroidView(
             factory = { ctx ->
                 WebView(ctx).apply {
+                    layoutParams = android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.allowFileAccess = true
@@ -238,11 +248,19 @@ fun RilocMapPager(
                     settings.setSupportZoom(true)
                     settings.builtInZoomControls = false
                     webViewClient = WebViewClient()
-                    webChromeClient = android.webkit.WebChromeClient()
+                    webChromeClient = object : android.webkit.WebChromeClient() {
+                        override fun onConsoleMessage(msg: android.webkit.ConsoleMessage?): Boolean {
+                            msg?.let {
+                                android.util.Log.i("RilocWebView", "[${it.messageLevel()}] ${it.message()}")
+                            }
+                            return true
+                        }
+                    }
                     addJavascriptInterface(webAppInterface, "Android")
                     loadUrl("file:///android_asset/map.html")
                     webViewRef = this
                 }
+
             },
             modifier = Modifier.fillMaxSize(),
         )
@@ -396,10 +414,10 @@ fun RilocMapPager(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             MapActionButton(icon = Icons.Default.Add, contentDescription = "放大") {
-                webViewRef?.evaluateJavascript("if(map) map.zoomIn();", null)
+                webViewRef?.evaluateJavascript("jsZoomIn();", null)
             }
             MapActionButton(icon = Icons.Default.Remove, contentDescription = "缩小") {
-                webViewRef?.evaluateJavascript("if(map) map.zoomOut();", null)
+                webViewRef?.evaluateJavascript("jsZoomOut();", null)
             }
             MapActionButton(icon = Icons.Default.MyLocation, contentDescription = "回到中心") {
                 webViewRef?.evaluateJavascript("jsSetStart(${current.lat}, ${current.lon}, '当前位置');", null)
