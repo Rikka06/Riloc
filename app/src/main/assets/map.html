@@ -43,6 +43,7 @@
 <script>
     var map = null;
     var defaultLayer = null;
+    var buildingsLayer = null;
     var satelliteLayer = null;
     var roadNetLayer = null;
     var polyline = null;
@@ -82,13 +83,14 @@
         script.onload = function() {
             if (typeof AMap !== 'undefined' && AMap.Map) {
                 defaultLayer = AMap.createDefaultLayer();
+                buildingsLayer = new AMap.Buildings();
                 satelliteLayer = new AMap.TileLayer.Satellite();
                 roadNetLayer = new AMap.TileLayer.RoadNet();
 
                 map = new AMap.Map('container', {
                     zoom: 16,
                     center: [currentLng, currentLat],
-                    layers: [defaultLayer],
+                    layers: [defaultLayer, buildingsLayer],
                     resizeEnable: true,
                     rotateEnable: true,
                     pitchEnable: true,
@@ -233,17 +235,20 @@
         if (map && typeof AMap !== 'undefined') {
             try {
                 if (!defaultLayer) defaultLayer = AMap.createDefaultLayer();
+                if (!buildingsLayer) buildingsLayer = new AMap.Buildings();
                 if (!satelliteLayer) satelliteLayer = new AMap.TileLayer.Satellite();
                 if (!roadNetLayer) roadNetLayer = new AMap.TileLayer.RoadNet();
 
                 if (styleType === 'amap_sat') {
+                    buildingsLayer.hide();
                     satelliteLayer.show();
                     roadNetLayer.show();
                     map.setLayers([satelliteLayer, roadNetLayer]);
                 } else {
                     satelliteLayer.hide();
                     roadNetLayer.hide();
-                    map.setLayers([defaultLayer]);
+                    buildingsLayer.show();
+                    map.setLayers([defaultLayer, buildingsLayer]);
                     map.setMapStyle('amap://styles/normal');
                 }
             } catch(e) {}
