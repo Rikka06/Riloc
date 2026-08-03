@@ -241,13 +241,14 @@ fun RilocMapPager(
     }
 
     val locateRealDevice = {
+        webViewRef?.evaluateJavascript("jsLocateUser();", null)
+
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         val updateLoc = { loc: Location ->
             val (gcjLat, gcjLng) = CoordinateConverter.wgs84ToGcj02(loc.latitude, loc.longitude)
             LocationHub.update(gcjLat, gcjLng)
             HistoryManager.add("真实位置", gcjLat, gcjLng)
             webViewRef?.evaluateJavascript("jsSetStart(${gcjLat}, ${gcjLng}, '真实位置');", null)
-            Toast.makeText(context, "已精准定位至当前设备真实位置", Toast.LENGTH_SHORT).show()
         }
 
         val listener = object : LocationListener {
@@ -265,17 +266,10 @@ fun RilocMapPager(
         if (hasGps || hasNetwork) {
             val provider = if (hasNetwork) LocationManager.NETWORK_PROVIDER else LocationManager.GPS_PROVIDER
             runCatching {
-                lm?.requestLocationUpdates(provider, 1000L, 0f, listener, android.os.Looper.getMainLooper())
+                lm?.requestLocationUpdates(provider, 500L, 0f, listener, android.os.Looper.getMainLooper())
             }
-            val cached = runCatching {
-                lm?.getLastKnownLocation(provider)
-                    ?: lm?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                    ?: lm?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            }.getOrNull()
-            if (cached != null) updateLoc(cached)
-        } else {
-            Toast.makeText(context, "请开启 GPS / 网络定位服务", Toast.LENGTH_SHORT).show()
         }
+        Toast.makeText(context, "正在进行高精度实时定位...", Toast.LENGTH_SHORT).show()
     }
 
     Box(Modifier.fillMaxSize()) {
