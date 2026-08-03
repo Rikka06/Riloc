@@ -296,9 +296,17 @@ fun RilocMapPager(
                     settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     settings.setSupportZoom(true)
                     settings.builtInZoomControls = false
+                    settings.setGeolocationEnabled(true)
 
                     webViewClient = WebViewClient()
                     webChromeClient = object : android.webkit.WebChromeClient() {
+                        override fun onGeolocationPermissionsShowPrompt(
+                            origin: String?,
+                            callback: android.webkit.GeolocationPermissions.Callback?
+                        ) {
+                            callback?.invoke(origin, true, false)
+                        }
+
                         override fun onConsoleMessage(msg: android.webkit.ConsoleMessage?): Boolean {
                             msg?.let {
                                 android.util.Log.i("RilocWebView", "[${it.messageLevel()}] ${it.message()}")

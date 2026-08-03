@@ -35,7 +35,7 @@
             display: none !important;
         }
 
-        /* 100% Match with AutoNavi User Location Marker (Blue Dot + Top Blue Triangle Pointer) */
+        /* 100% Straight & Centered AutoNavi User Location Marker (Blue Dot + Top Straight Triangle Pointer) */
         .amap-user-location {
             position: relative;
             width: 44px;
@@ -65,16 +65,16 @@
         }
         .amap-user-cone {
             position: absolute;
-            top: -11px;
+            top: -10px;
             left: 50%;
-            margin-left: -6px;
             width: 0;
             height: 0;
             border-left: 6px solid transparent;
             border-right: 6px solid transparent;
             border-bottom: 12px solid #1E88E5;
-            transform-origin: 6px 21px;
-            transition: transform 0.1s linear;
+            transform: translateX(-50%);
+            transform-origin: center 20px;
+            transition: transform 0.15s ease-out;
         }
     </style>
 </head>
@@ -175,7 +175,7 @@
     function jsSetHeading(heading) {
         var cone = document.getElementById('userCone');
         if (cone) {
-            cone.style.transform = 'rotate(' + heading + 'deg)';
+            cone.style.transform = 'translateX(-50%) rotate(' + heading + 'deg)';
         }
     }
 
@@ -187,10 +187,6 @@
                     var lng = result.position.lng;
                     jsSetStart(lat, lng, '真实位置');
                     if (window.Android) window.Android.onPointSelected(lat, lng, '真实位置');
-                } else {
-                    if (map) {
-                        map.setCity('全国');
-                    }
                 }
             });
         }
