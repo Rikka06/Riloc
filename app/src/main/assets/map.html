@@ -83,7 +83,8 @@
                     center: [currentLng, currentLat],
                     resizeEnable: true,
                     rotateEnable: true,
-                    pitchEnable: true
+                    pitchEnable: true,
+                    viewMode: '3D'
                 });
 
                 autoSuggest = new AMap.AutoComplete({ city: '全国' });
@@ -221,12 +222,19 @@
     }
 
     function jsSetMapStyle(styleType) {
-        if (map) {
-            if (styleType === 'amap_sat') {
-                map.setLayers([new AMap.TileLayer.Satellite()]);
-            } else {
-                map.setLayers([new AMap.TileLayer()]);
-            }
+        if (map && typeof AMap !== 'undefined') {
+            try {
+                if (styleType === 'amap_sat') {
+                    var satLayer = new AMap.TileLayer.Satellite();
+                    map.setLayers([AMap.createDefaultLayer(), satLayer]);
+                } else if (styleType === 'amap_dark' || styleType === 'dark') {
+                    map.setLayers([AMap.createDefaultLayer()]);
+                    map.setMapStyle('amap://styles/dark');
+                } else {
+                    map.setLayers([AMap.createDefaultLayer()]);
+                    map.setMapStyle('amap://styles/normal');
+                }
+            } catch(e) {}
         }
     }
 </script>
