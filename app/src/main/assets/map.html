@@ -35,46 +35,15 @@
             display: none !important;
         }
 
-        /* 100% Straight & Centered AutoNavi User Location Marker (Blue Dot + Top Straight Triangle Pointer) */
-        .amap-user-location {
-            position: relative;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-        }
-        .amap-user-halo {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: rgba(30, 136, 229, 0.22);
-            border: 1px solid rgba(30, 136, 229, 0.35);
-        }
-        .amap-user-dot {
-            position: relative;
-            width: 20px;
-            height: 20px;
+        /* Clean Classic AutoNavi Location Dot (No Triangle, No Large Accuracy Circle) */
+        .amap-user-dot-clean {
+            width: 18px;
+            height: 18px;
             border-radius: 50%;
             background: #1E88E5;
             border: 3px solid #FFFFFF;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-            z-index: 2;
-        }
-        .amap-user-cone {
-            position: absolute;
-            top: -10px;
-            left: 50%;
-            width: 0;
-            height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-bottom: 12px solid #1E88E5;
-            transform: translateX(-50%);
-            transform-origin: center 20px;
-            transition: transform 0.15s ease-out;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -88,19 +57,14 @@
     var buildingsLayer = null;
     var satelliteLayer = null;
     var roadNetLayer = null;
-    var polyline = null;
-    var startMarker = null, endMarker = null;
-    var isDrawingMode = false;
-    var canSelectPoint = true;
-    var drawPath = [];
+    var startMarker = null;
     var longPressTimer = null;
     var touchStartX = 0, touchStartY = 0;
     var autoSuggest = null;
     var geolocation = null;
     var currentLat = 29.50862, currentLng = 106.49776;
 
-    var userLocationHtml = '<div class="amap-user-location"><div class="amap-user-halo"></div><div class="amap-user-dot"><div class="amap-user-cone" id="userCone"></div></div></div>';
-    var iconEndSvg = '<div style="width:30px;height:40px;"><svg viewBox="0 0 24 24" width="30" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 16 1-3 8-10.75 8-16 0-4.42-3.58-8-8-8z" fill="#E53935"/><circle cx="12" cy="8" r="3" fill="#FFFFFF"/></svg></div>';
+    var userLocationHtml = '<div class="amap-user-dot-clean"></div>';
 
     window.onload = function() {
         var key = '8325164e247e15eea68b59e89200988b';
@@ -146,10 +110,10 @@
                     geolocation = new AMap.Geolocation({
                         enableHighAccuracy: true,
                         timeout: 10000,
-                        buttonPosition: 'RB',
-                        zoomToAccuracy: true
+                        showCircle: false,   /* Hide large blue accuracy circle completely */
+                        showMarker: false,   /* Hide Geolocation extra native marker */
+                        panToLocation: true
                     });
-                    map.addControl(geolocation);
                 } catch(e) {}
 
                 map.on('complete', function() {
@@ -171,13 +135,6 @@
 
     function jsZoomOut() {
         if (map) map.zoomOut();
-    }
-
-    function jsSetHeading(heading) {
-        var cone = document.getElementById('userCone');
-        if (cone) {
-            cone.style.transform = 'translateX(-50%) rotate(' + heading + 'deg)';
-        }
     }
 
     function jsLocateUser() {
@@ -210,77 +167,29 @@
         }
     }
 
-    function jsSetMode(modeName, enableDraw, canSelect) {
-        isDrawingMode = enableDraw;
-        canSelectPoint = canSelect;
-        if (map) {
-            map.setStatus({ dragEnable: !enableDraw, zoomEnable: !enableDraw });
-            if (enableDraw) {
-                jsClearRoute();
-            }
-        }
-    }
-
-    function jsSetDrawingMode(enable) {
-        jsSetMode(enable ? 'ROUTE' : 'STATIC', enable, !enable);
-    }
-
     function onTouchStart(e) {
         var touch = e.touches[0];
         touchStartX = touch.clientX;
         touchStartY = touch.clientY;
-        if (isDrawingMode) {
-            drawPath = [];
-            if (polyline && map) map.remove(polyline);
-            if (startMarker && map) map.remove(startMarker);
-            if (endMarker && map) map.remove(endMarker);
+        clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(function() {
             if (map) {
-                polyline = new AMap.Polyline({ path: [], strokeColor: "#1E88E5", strokeWeight: 6, strokeOpacity: 0.9, lineJoin: 'round' });
-                map.add(polyline);
+                var lnglat = map.containerToLngLat(new AMap.Pixel(touchStartX, touchStartY));
+                if (window.Android) window.Android.onPointSelected(lnglat.getLat(), lnglat.getLng(), "地图选点");
+                jsSetStart(lnglat.getLat(), lnglat.getLng(), "选点");
             }
-        } else if (canSelectPoint) {
-            clearTimeout(longPressTimer);
-            longPressTimer = setTimeout(function() {
-                if (map) {
-                    var lnglat = map.containerToLngLat(new AMap.Pixel(touchStartX, touchStartY));
-                    if (window.Android) window.Android.onPointSelected(lnglat.getLat(), lnglat.getLng(), "地图选点");
-                    jsSetStart(lnglat.getLat(), lnglat.getLng(), "选点");
-                }
-            }, 500);
-        }
+        }, 500);
     }
 
     function onTouchMove(e) {
         var touch = e.touches[0];
-        if (isDrawingMode) {
-            e.preventDefault();
-            if (map) {
-                var lnglat = map.containerToLngLat(new AMap.Pixel(touch.clientX, touch.clientY));
-                if (drawPath.length > 0) {
-                    var last = drawPath[drawPath.length - 1];
-                    if (Math.abs(last.lng - lnglat.getLng()) < 0.0001 && Math.abs(last.lat - lnglat.getLat()) < 0.0001) return;
-                }
-                drawPath.push({lat: lnglat.getLat(), lng: lnglat.getLng()});
-                polyline.setPath(drawPath.map(p => [p.lng, p.lat]));
-            }
-        } else {
-            if (Math.abs(touch.clientX - touchStartX) > 10 || Math.abs(touch.clientY - touchStartY) > 10) {
-                clearTimeout(longPressTimer);
-            }
+        if (Math.abs(touch.clientX - touchStartX) > 10 || Math.abs(touch.clientY - touchStartY) > 10) {
+            clearTimeout(longPressTimer);
         }
     }
 
     function onTouchEnd(e) {
         clearTimeout(longPressTimer);
-        if (isDrawingMode && drawPath.length > 2) {
-            var startP = drawPath[0], endP = drawPath[drawPath.length-1];
-            if (map) {
-                startMarker = new AMap.Marker({ position: [startP.lng, startP.lat], content: userLocationHtml, offset: new AMap.Pixel(-22, -22) });
-                endMarker = new AMap.Marker({ position: [endP.lng, endP.lat], content: iconEndSvg, offset: new AMap.Pixel(-15, -40) });
-                map.add([startMarker, endMarker]);
-            }
-            if (window.Android) window.Android.onPathDrawn(drawPath.map(p => p.lat.toFixed(6) + "," + p.lng.toFixed(6)).join("|"));
-        }
     }
 
     function jsSetStart(lat, lng, name) {
@@ -288,27 +197,22 @@
         currentLng = lng;
         if (map) {
             if (startMarker) map.remove(startMarker);
-            startMarker = new AMap.Marker({ position: [lng, lat], content: userLocationHtml, offset: new AMap.Pixel(-22, -22) });
+            startMarker = new AMap.Marker({
+                position: [lng, lat],
+                content: userLocationHtml,
+                offset: new AMap.Pixel(-9, -9)
+            });
             map.add(startMarker);
             map.panTo([lng, lat]);
         }
     }
 
-    function jsSetEnd(lat, lng) {
-        if (map) {
-            if (endMarker) map.remove(endMarker);
-            endMarker = new AMap.Marker({ position: [lng, lat], content: iconEndSvg, offset: new AMap.Pixel(-15, -40) });
-            map.add(endMarker);
-        }
-    }
+    function jsSetEnd(lat, lng) {}
 
     function jsClearRoute() {
-        if (map) {
-            if (polyline) map.remove(polyline);
-            if (startMarker) map.remove(startMarker);
-            if (endMarker) map.remove(endMarker);
+        if (map && startMarker) {
+            map.remove(startMarker);
         }
-        drawPath = [];
     }
 
     function jsSetMapStyle(styleType) {
