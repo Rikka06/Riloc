@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -486,225 +487,36 @@ fun RilocMapPager(
             }
         }
 
-        // ── Bottom Control Panel ──
-        Card(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = bottomInnerPadding + 16.dp)
-                .fillMaxWidth(),
-            colors = CardDefaults.defaultColors(
-                color = colorScheme.surface.copy(alpha = 0.95f)
-            ),
-        ) {
-            Column(Modifier.padding(14.dp)) {
+
+
+        // ── Map Style Selector Floating Capsule ──
+        if (showStyleSelector) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = bottomInnerPadding + 16.dp)
+                    .wrapContentWidth(),
+                colors = CardDefaults.defaultColors(
+                    color = colorScheme.surface.copy(alpha = 0.95f)
+                ),
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Segmented Capsule Control for MapMode
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .padding(end = 12.dp)
-                            .clip(CircleShape)
-                            .background(colorScheme.surfaceContainerHigh),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MapMode.entries.forEach { mode ->
-                            val selected = (currentMode == mode)
-                            val label = when (mode) {
-                                MapMode.STATIC -> "静态"
-                                MapMode.JOYSTICK -> "摇杆"
-                                MapMode.ROUTE -> "漫游"
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(3.dp)
-                                    .clip(CircleShape)
-                                    .background(if (selected) colorScheme.primary else Color.Transparent)
-                                    .clickable {
-                                        currentMode = mode
-                                        when (mode) {
-                                            MapMode.STATIC -> {
-                                                engine.stop()
-                                                routeEngine.stop()
-                                            }
-                                            MapMode.JOYSTICK -> {
-                                                routeEngine.stop()
-                                            }
-                                            MapMode.ROUTE -> {
-                                                engine.stop()
-                                            }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = TextStyle(
-                                        fontSize = 13.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (selected) Color.White else colorScheme.onSurfaceVariantSummary,
-                                    ),
-                                )
-                            }
-                        }
-                    }
-
-                    FloatingActionButton(
-
-                        onClick = {
-                            isPlaying = !isPlaying
-                            Prefs.setPlaying(isPlaying)
-                            if (!isPlaying) {
-                                engine.stop()
-                                routeEngine.stop()
-                            } else {
-                                when (currentMode) {
-                                    MapMode.JOYSTICK -> engine.startJoystick(joystickSpeed)
-                                    MapMode.ROUTE -> routeEngine.start(speed = joystickSpeed)
-                                    MapMode.STATIC -> {}
-                                }
-                            }
-                        },
-                        modifier = Modifier.size(48.dp),
-                        shape = CircleShape,
-                        containerColor = if (isPlaying) Color(0xFFE53935) else Color(0xFF1E88E5),
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = if (isPlaying) "停止" else "开始",
-                            tint = Color.White,
-                        )
-                    }
-                }
-
-                // Controls for Joystick mode
-                if (currentMode == MapMode.JOYSTICK || currentMode == MapMode.ROUTE) {
-                    Column(Modifier.padding(top = 10.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                    MapStyle.entries.forEach { style ->
+                        MiuixChip(
+                            text = style.label,
+                            selected = mapStyle == style,
                         ) {
-                            Text("速度", fontSize = 13.sp, color = colorScheme.onSurface)
-                            Slider(
-                                value = joystickSpeed,
-                                onValueChange = {
-                                    joystickSpeed = it
-                                    Prefs.setUiFloat("joystick_speed", it)
-                                    if (engine.mode == MoveEngine.Mode.JOYSTICK) {
-                                        engine.stop()
-                                        engine.startJoystick(it)
-                                    }
-                                },
-                                valueRange = 0.5f..30f,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp),
-                            )
-                            Text(
-                                "%.1f m/s".format(joystickSpeed),
-                                fontSize = 12.sp,
-                                color = colorScheme.onSurfaceVariantSummary
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            MiuixChip("步行", selected = kotlin.math.abs(joystickSpeed - 1.5f) < 0.2f) {
-                                joystickSpeed = 1.5f
-                                Prefs.setUiFloat("joystick_speed", 1.5f)
-                            }
-                            MiuixChip("骑行", selected = kotlin.math.abs(joystickSpeed - 4.5f) < 0.2f) {
-                                joystickSpeed = 4.5f
-                                Prefs.setUiFloat("joystick_speed", 4.5f)
-                            }
-                            MiuixChip("驾车", selected = kotlin.math.abs(joystickSpeed - 15.0f) < 0.2f) {
-                                joystickSpeed = 15.0f
-                                Prefs.setUiFloat("joystick_speed", 15.0f)
-                            }
-                            MiuixChip("高速", selected = kotlin.math.abs(joystickSpeed - 30.0f) < 0.2f) {
-                                joystickSpeed = 30.0f
-                                Prefs.setUiFloat("joystick_speed", 30.0f)
-                            }
+                            mapStyle = style
+                            MapStyles.setCurrent(style)
+                            webViewRef?.evaluateJavascript("jsSetMapStyle('${style.key}');", null)
                         }
                     }
                 }
-
-                // Controls for Route mode
-                if (currentMode == MapMode.ROUTE) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            "路线节点: ${routeWaypoints.size} 个 (按住地图划动轨迹)",
-                            fontSize = 12.sp,
-                            color = colorScheme.onSurface
-                        )
-                        MiuixChip("清空路线", selected = false) {
-                            routeWaypoints.clear()
-                            routeEngine.clearRoute()
-                            webViewRef?.evaluateJavascript("jsClearRoute();", null)
-                        }
-                    }
-                }
-
-                // Expandable Map Style Selector Row
-                if (showStyleSelector) {
-                    Spacer(Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            "地图图层",
-                            fontSize = 13.sp,
-                            color = colorScheme.onSurface,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            MapStyle.entries.forEach { style ->
-                                MiuixChip(
-                                    text = style.label,
-                                    selected = mapStyle == style,
-                                ) {
-                                    mapStyle = style
-                                    MapStyles.setCurrent(style)
-                                    webViewRef?.evaluateJavascript("jsSetMapStyle('${style.key}');", null)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ── Joystick Widget overlay (bottom-right) ──
-        if (currentMode == MapMode.JOYSTICK) {
-            Box(
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(end = 18.dp, bottom = bottomInnerPadding + 160.dp)
-            ) {
-                Joystick(onVectorChange = { x, y -> engine.setJoystickVector(x, y) })
             }
         }
 
