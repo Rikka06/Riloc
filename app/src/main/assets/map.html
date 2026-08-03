@@ -44,6 +44,7 @@
     var map = null;
     var defaultLayer = null;
     var satelliteLayer = null;
+    var roadNetLayer = null;
     var polyline = null;
     var startMarker = null, endMarker = null;
     var isDrawingMode = false;
@@ -82,6 +83,7 @@
             if (typeof AMap !== 'undefined' && AMap.Map) {
                 defaultLayer = AMap.createDefaultLayer();
                 satelliteLayer = new AMap.TileLayer.Satellite();
+                roadNetLayer = new AMap.TileLayer.RoadNet();
 
                 map = new AMap.Map('container', {
                     zoom: 16,
@@ -232,18 +234,17 @@
             try {
                 if (!defaultLayer) defaultLayer = AMap.createDefaultLayer();
                 if (!satelliteLayer) satelliteLayer = new AMap.TileLayer.Satellite();
+                if (!roadNetLayer) roadNetLayer = new AMap.TileLayer.RoadNet();
 
                 if (styleType === 'amap_sat') {
                     satelliteLayer.show();
-                    map.setLayers([defaultLayer, satelliteLayer]);
+                    roadNetLayer.show();
+                    map.setLayers([satelliteLayer, roadNetLayer]);
                 } else {
                     satelliteLayer.hide();
+                    roadNetLayer.hide();
                     map.setLayers([defaultLayer]);
-                    if (styleType === 'amap_dark' || styleType === 'dark') {
-                        map.setMapStyle('amap://styles/dark');
-                    } else {
-                        map.setMapStyle('amap://styles/normal');
-                    }
+                    map.setMapStyle('amap://styles/normal');
                 }
             } catch(e) {}
         }
