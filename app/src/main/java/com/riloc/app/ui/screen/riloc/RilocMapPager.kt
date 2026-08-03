@@ -236,6 +236,9 @@ fun RilocMapPager(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT
                     )
+                    overScrollMode = android.view.View.OVER_SCROLL_NEVER
+                    isVerticalScrollBarEnabled = false
+                    isHorizontalScrollBarEnabled = false
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.allowFileAccess = true
@@ -247,6 +250,7 @@ fun RilocMapPager(
                     settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     settings.setSupportZoom(true)
                     settings.builtInZoomControls = false
+
                     webViewClient = WebViewClient()
                     webChromeClient = object : android.webkit.WebChromeClient() {
                         override fun onConsoleMessage(msg: android.webkit.ConsoleMessage?): Boolean {
