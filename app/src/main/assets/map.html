@@ -3,7 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <link rel="stylesheet" href="leaflet.css" />
     <style>
         * {
             -webkit-touch-callout: none;
@@ -12,15 +11,16 @@
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
-        html {
+        html, body {
             width: 100%;
             height: 100%;
             margin: 0;
             padding: 0;
             overflow: hidden;
+            background-color: #F5F5F5;
         }
-        body {
-            position: fixed;
+        #container {
+            position: absolute;
             top: 0;
             left: 0;
             right: 0;
@@ -29,22 +29,9 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            touch-action: none;
             background-color: #F5F5F5;
         }
-        #container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background-color: #F5F5F5;
-            z-index: 1;
-        }
-        .amap-logo, .amap-copyright, .leaflet-control-attribution {
+        .amap-logo, .amap-copyright {
             display: none !important;
         }
     </style>
@@ -53,26 +40,15 @@
 
 <div id="container"></div>
 
-<script src="leaflet.js"></script>
-
 <script>
-    // Lock document touchmove to prevent body scrolling inside WebView
-    document.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-    }, { passive: false });
-
     var map = null;
-    var leafletMap = null;
     var polyline = null;
     var startMarker = null, endMarker = null;
-    var leafletMarker = null;
     var isDrawingMode = false;
     var drawPath = [];
     var longPressTimer = null;
-    var fallbackTimer = null;
     var touchStartX = 0, touchStartY = 0;
     var autoSuggest = null;
-    var isAmapLoaded = false;
     var currentLat = 29.50862, currentLng = 106.49776;
 
     var iconStartSvg = '<div style="width:30px;height:40px;"><svg viewBox="0 0 24 24" width="30" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 16 1-3 8-10.75 8-16 0-4.42-3.58-8-8-8z" fill="#1E88E5"/><circle cx="12" cy="8" r="3" fill="#FFFFFF"/></svg></div>';
@@ -91,14 +67,7 @@
                 }
             } catch(e) {}
         }
-        
         startLoadAMap(key, secret);
-
-        fallbackTimer = setTimeout(function() {
-            if (!isAmapLoaded && !map && !leafletMap) {
-                initLeafletFallback();
-            }
-        }, 2000);
     };
 
     function startLoadAMap(key, secret) {
@@ -108,82 +77,36 @@
         var script = document.createElement('script');
         script.src = "https://webapi.amap.com/maps?v=2.0&key=" + key + "&plugin=AMap.AutoComplete";
         script.onload = function() {
-            if (typeof AMap !== 'undefined' && AMap.Map && !leafletMap) {
-                try {
-                    clearTimeout(fallbackTimer);
-                    isAmapLoaded = true;
+            if (typeof AMap !== 'undefined' && AMap.Map) {
+                map = new AMap.Map('container', {
+                    zoom: 16,
+                    center: [currentLng, currentLat],
+                    resizeEnable: true,
+                    rotateEnable: true,
+                    pitchEnable: true
+                });
 
-                    map = new AMap.Map('container', {
-                        zoom: 16,
-                        center: [currentLng, currentLat],
-                        resizeEnable: true,
-                        rotateEnable: true,
-                        pitchEnable: true
-                    });
+                autoSuggest = new AMap.AutoComplete({ city: '全国' });
 
-                    autoSuggest = new AMap.AutoComplete({ city: '全国' });
+                map.on('complete', function() {
+                    if (window.Android) window.Android.onMapReady();
+                });
 
-                    map.on('complete', function() {
-                        if (window.Android) window.Android.onMapReady();
-                    });
-
-                    var container = document.getElementById('container');
-                    container.addEventListener('touchstart', onTouchStart, {passive: false});
-                    container.addEventListener('touchmove', onTouchMove, {passive: false});
-                    container.addEventListener('touchend', onTouchEnd, {passive: false});
-                } catch(err) {
-                    initLeafletFallback();
-                }
-            } else {
-                initLeafletFallback();
+                var container = document.getElementById('container');
+                container.addEventListener('touchstart', onTouchStart, {passive: false});
+                container.addEventListener('touchmove', onTouchMove, {passive: false});
+                container.addEventListener('touchend', onTouchEnd, {passive: false});
             }
-        };
-        script.onerror = function(e) {
-            initLeafletFallback();
         };
         document.head.appendChild(script);
     }
 
-    function initLeafletFallback() {
-        if (leafletMap || isAmapLoaded || map) return;
-
-        clearTimeout(fallbackTimer);
-        document.getElementById('container').innerHTML = '';
-        leafletMap = L.map('container', { zoomControl: false }).setView([currentLat, currentLng], 16);
-
-        L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', {
-            subdomains: ['1', '2', '3', '4'],
-            maxZoom: 19,
-            minZoom: 3
-        }).addTo(leafletMap);
-
-        var startIcon = L.divIcon({
-            html: iconStartSvg,
-            className: '',
-            iconSize: [30, 40],
-            iconAnchor: [15, 40]
-        });
-
-        leafletMarker = L.marker([currentLat, currentLng], { icon: startIcon }).addTo(leafletMap);
-
-        leafletMap.on('click', function(e) {
-            var lat = e.latlng.lat;
-            var lng = e.latlng.lng;
-            leafletMarker.setLatLng([lat, lng]);
-            if (window.Android) window.Android.onPointSelected(lat, lng, "地图选点");
-        });
-
-        if (window.Android) window.Android.onMapReady();
-    }
-
     function jsZoomIn() {
         if (map) map.zoomIn();
-        else if (leafletMap) leafletMap.zoomIn();
     }
 
     function jsZoomOut() {
         if (map) map.zoomOut();
-        else if (leafletMap) leafletMap.zoomOut();
     }
 
     function jsFetchTips(keyword) {
@@ -207,10 +130,6 @@
         isDrawingMode = enable;
         if (map) {
             map.setStatus({ dragEnable: !enable, zoomEnable: !enable });
-            jsClearRoute();
-        } else if (leafletMap) {
-            if (enable) leafletMap.dragging.disable();
-            else leafletMap.dragging.enable();
             jsClearRoute();
         }
     }
@@ -281,9 +200,6 @@
             startMarker = new AMap.Marker({ position: [lng, lat], content: iconStartSvg, offset: new AMap.Pixel(-15, -40) });
             map.add(startMarker);
             map.panTo([lng, lat]);
-        } else if (leafletMap) {
-            if (leafletMarker) leafletMarker.setLatLng([lat, lng]);
-            leafletMap.panTo([lat, lng]);
         }
     }
 
