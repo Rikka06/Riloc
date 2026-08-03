@@ -2,7 +2,14 @@ package com.riloc.app.ui.screen.riloc
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Bundle
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -194,6 +201,25 @@ fun RilocMapPager(
         webViewRef?.evaluateJavascript("jsSetDrawingMode($enableDraw);", null)
     }
 
+    // Sensor compass heading listener for live location arrow orientation
+    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager }
+    DisposableEffect(Unit) {
+        val sensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ORIENTATION)
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event?.sensor?.type == Sensor.TYPE_ORIENTATION) {
+                    val azimuth = event.values[0]
+                    webViewRef?.evaluateJavascript("jsSetHeading($azimuth);", null)
+                }
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        sensorManager?.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        onDispose {
+            sensorManager?.unregisterListener(listener)
+        }
+    }
+
     val performSearch = {
         if (searchQuery.isNotBlank()) {
             isSearching = true
@@ -216,20 +242,39 @@ fun RilocMapPager(
 
     val locateRealDevice = {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-        val realLoc = runCatching {
-            lm?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                ?: lm?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                ?: lm?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-        }.getOrNull()
-
-        if (realLoc != null && realLoc.latitude != 0.0) {
-            val (gcjLat, gcjLng) = CoordinateConverter.wgs84ToGcj02(realLoc.latitude, realLoc.longitude)
+        val updateLoc = { loc: Location ->
+            val (gcjLat, gcjLng) = CoordinateConverter.wgs84ToGcj02(loc.latitude, loc.longitude)
             LocationHub.update(gcjLat, gcjLng)
             HistoryManager.add("真实位置", gcjLat, gcjLng)
             webViewRef?.evaluateJavascript("jsSetStart(${gcjLat}, ${gcjLng}, '真实位置');", null)
             Toast.makeText(context, "已精准定位至当前设备真实位置", Toast.LENGTH_SHORT).show()
+        }
+
+        val listener = object : LocationListener {
+            override fun onLocationChanged(loc: Location) {
+                updateLoc(loc)
+                lm?.removeUpdates(this)
+            }
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        }
+
+        val hasGps = lm?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
+        val hasNetwork = lm?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+
+        if (hasGps || hasNetwork) {
+            val provider = if (hasNetwork) LocationManager.NETWORK_PROVIDER else LocationManager.GPS_PROVIDER
+            runCatching {
+                lm?.requestLocationUpdates(provider, 1000L, 0f, listener, android.os.Looper.getMainLooper())
+            }
+            val cached = runCatching {
+                lm?.getLastKnownLocation(provider)
+                    ?: lm?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    ?: lm?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            }.getOrNull()
+            if (cached != null) updateLoc(cached)
         } else {
-            Toast.makeText(context, "未能获取当前真实 GPS 位置，请开启定位权限", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "请开启 GPS / 网络定位服务", Toast.LENGTH_SHORT).show()
         }
     }
 
