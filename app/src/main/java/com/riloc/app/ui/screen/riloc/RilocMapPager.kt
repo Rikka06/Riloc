@@ -278,7 +278,7 @@ fun RilocMapPager(
                 .padding(horizontal = 12.dp, vertical = 6.dp)
                 .fillMaxWidth(),
             colors = CardDefaults.defaultColors(
-                color = colorScheme.surface.copy(alpha = 0.95f)
+                color = colorScheme.surface
             ),
         ) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -439,7 +439,7 @@ fun RilocMapPager(
                 .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = bottomInnerPadding + 16.dp)
                 .fillMaxWidth(),
             colors = CardDefaults.defaultColors(
-                color = colorScheme.surface.copy(alpha = 0.96f)
+                color = colorScheme.surface
             ),
         ) {
             Column(Modifier.padding(14.dp)) {

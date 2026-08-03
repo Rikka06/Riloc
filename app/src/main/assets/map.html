@@ -42,6 +42,8 @@
 
 <script>
     var map = null;
+    var defaultLayer = null;
+    var satelliteLayer = null;
     var polyline = null;
     var startMarker = null, endMarker = null;
     var isDrawingMode = false;
@@ -78,9 +80,13 @@
         script.src = "https://webapi.amap.com/maps?v=2.0&key=" + key + "&plugin=AMap.AutoComplete";
         script.onload = function() {
             if (typeof AMap !== 'undefined' && AMap.Map) {
+                defaultLayer = AMap.createDefaultLayer();
+                satelliteLayer = new AMap.TileLayer.Satellite();
+
                 map = new AMap.Map('container', {
                     zoom: 16,
                     center: [currentLng, currentLat],
+                    layers: [defaultLayer],
                     resizeEnable: true,
                     rotateEnable: true,
                     pitchEnable: true,
@@ -224,15 +230,20 @@
     function jsSetMapStyle(styleType) {
         if (map && typeof AMap !== 'undefined') {
             try {
+                if (!defaultLayer) defaultLayer = AMap.createDefaultLayer();
+                if (!satelliteLayer) satelliteLayer = new AMap.TileLayer.Satellite();
+
                 if (styleType === 'amap_sat') {
-                    var satLayer = new AMap.TileLayer.Satellite();
-                    map.setLayers([AMap.createDefaultLayer(), satLayer]);
-                } else if (styleType === 'amap_dark' || styleType === 'dark') {
-                    map.setLayers([AMap.createDefaultLayer()]);
-                    map.setMapStyle('amap://styles/dark');
+                    satelliteLayer.show();
+                    map.setLayers([defaultLayer, satelliteLayer]);
                 } else {
-                    map.setLayers([AMap.createDefaultLayer()]);
-                    map.setMapStyle('amap://styles/normal');
+                    satelliteLayer.hide();
+                    map.setLayers([defaultLayer]);
+                    if (styleType === 'amap_dark' || styleType === 'dark') {
+                        map.setMapStyle('amap://styles/dark');
+                    } else {
+                        map.setMapStyle('amap://styles/normal');
+                    }
                 }
             } catch(e) {}
         }
