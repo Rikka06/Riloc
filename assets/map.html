@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width, maximum-scale=1.0">
+    <style>
+        * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: pan-x pan-y !important; }
+        html, body, #container { height: 100%; width: 100%; margin: 0; background-color: #F5F5F5; overflow: hidden; }
+        .amap-logo, .amap-copyright { display: none !important; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+<div id="container"></div>
+<script>
+    var map, polyline;
+    var startMarker, endMarker;
+    var isDrawingMode = false;
+    var drawPath = [];
+    var longPressTimer;
+    var touchStartX, touchStartY;
+    var autoSuggest;
+
+    var iconStart = '<div style="width:30px;height:40px;"><svg viewBox="0 0 24 24" width="30" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 16 1-3 8-10.75 8-16 0-4.42-3.58-8-8-8z" fill="#3370FF"/><circle cx="12" cy="8" r="3" fill="#FFFFFF"/></svg></div>';
+    var iconEnd = '<div style="width:30px;height:40px;"><svg viewBox="0 0 24 24" width="30" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 16 1-3 8-10.75 8-16 0-4.42-3.58-8-8-8z" fill="#FF3333"/><circle cx="12" cy="8" r="3" fill="#FFFFFF"/></svg></div>';
+
+    window.onload = function() {
+        if (window.Android) {
+            var config = window.Android.getAMapConfig();
+            var parts = config.split('|');
+            startLoadMap(parts[0], parts[1]);
+        }
+    };
+
+    function startLoadMap(key, secret) {
+        window._AMapSecurityConfig = { securityJsCode: secret };
+        var script = document.createElement('script');
+        script.src = "https://webapi.amap.com/maps?v=2.0&key=" + key + "&plugin=AMap.AutoComplete";
+        script.onload = function() {
+            map = new AMap.Map('container', { zoom: 15, center: [116.397428, 39.90923], resizeEnable: true });
+
+            // 加载搜索插件
+            autoSuggest = new AMap.AutoComplete({city: '全国'});
+
+            map.on('complete', function() { if (window.Android) window.Android.onMapReady(); });
+            var container = document.getElementById('container');
+            container.addEventListener('touchstart', onTouchStart, {passive: false});
+            container.addEventListener('touchmove', onTouchMove, {passive: false});
+            container.addEventListener('touchend', onTouchEnd, {passive: false});
+        };
+        document.head.appendChild(script);
+    }
+
+    // 【修正】：返回字符串格式
+    function jsFetchTips(keyword) {
+        if (!autoSuggest) return;
+        autoSuggest.search(keyword, function(status, result) {
+            if (status === 'complete' && result.tips) {
+                var res = [];
+                for(var i=0; i<result.tips.length; i++){
+                    var t = result.tips[i];
+                    if(t.location){
+                        // 用逗号拼接单条，用竖线拼接多条
+                        res.push(t.name + "," + t.location.lat + "," + t.location.lng);
+                    }
+                }
+                if (window.Android) window.Android.onReceiveTips(res.join("|"));
+            }
+        });
+    }
+
+    function jsSetDrawingMode(enable) {
+        isDrawingMode = enable;
+        if (enable) {
+            map.setStatus({ dragEnable: false, zoomEnable: false });
+            jsClearRoute();
+        } else {
+            map.setStatus({ dragEnable: true, zoomEnable: true });
+        }
+    }
+
+    function onTouchStart(e) {
+        var touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        if (isDrawingMode) {
+            drawPath = [];
+            if (polyline) map.remove(polyline);
+            if (startMarker) map.remove(startMarker);
+            if (endMarker) map.remove(endMarker);
+            polyline = new AMap.Polyline({ path: [], strokeColor: "#3366FF", strokeWeight: 6, strokeOpacity: 0.9, lineJoin: 'round' });
+            map.add(polyline);
+        } else {
+            clearTimeout(longPressTimer);
+            longPressTimer = setTimeout(function() {
+                if (window.Android) window.Android.vibrate(50);
+                var lnglat = map.containerToLngLat(new AMap.Pixel(touchStartX, touchStartY));
+                if (window.Android) window.Android.onPointSelected(lnglat.getLat(), lnglat.getLng(), "长按选点");
+            }, 600);
+        }
+    }
+
+    function onTouchMove(e) {
+        var touch = e.touches[0];
+        if (isDrawingMode) {
+            e.preventDefault();
+            var lnglat = map.containerToLngLat(new AMap.Pixel(touch.clientX, touch.clientY));
+            if (drawPath.length > 0) {
+                var last = drawPath[drawPath.length - 1];
+                if (Math.abs(last.lng - lnglat.getLng()) < 0.0001 && Math.abs(last.lat - lnglat.getLat()) < 0.0001) return;
+            }
+            drawPath.push({lat: lnglat.getLat(), lng: lnglat.getLng()});
+            polyline.setPath(drawPath.map(p => [p.lng, p.lat]));
+        } else {
+            if (Math.abs(touch.clientX - touchStartX) > 10 || Math.abs(touch.clientY - touchStartY) > 10) {
+                clearTimeout(longPressTimer);
+            }
+        }
+    }
+
+    function onTouchEnd(e) {
+        clearTimeout(longPressTimer);
+        if (isDrawingMode && drawPath.length > 2) {
+            var startP = drawPath[0], endP = drawPath[drawPath.length-1];
+            startMarker = new AMap.Marker({ position: [startP.lng, startP.lat], content: iconStart, offset: new AMap.Pixel(-15, -40) });
+            endMarker = new AMap.Marker({ position: [endP.lng, endP.lat], content: iconEnd, offset: new AMap.Pixel(-15, -40) });
+            map.add([startMarker, endMarker]);
+            if (window.Android) window.Android.onPathDrawn(drawPath.map(p => p.lat.toFixed(6) + "," + p.lng.toFixed(6)).join("|"));
+        }
+    }
+
+    function jsSetStart(lat, lng, name) {
+        if (!map) return;
+        if (startMarker) map.remove(startMarker);
+        startMarker = new AMap.Marker({ position: [lng, lat], content: iconStart, offset: new AMap.Pixel(-15, -40) });
+        map.add(startMarker);
+        map.panTo([lng, lat]);
+    }
+
+    function jsSetEnd(lat, lng) {
+        if (!map) return;
+        if (endMarker) map.remove(endMarker);
+        endMarker = new AMap.Marker({ position: [lng, lat], content: iconEnd, offset: new AMap.Pixel(-15, -40) });
+        map.add(endMarker);
+    }
+
+    function jsClearRoute() {
+        if (polyline) map.remove(polyline);
+        if (startMarker) map.remove(startMarker);
+        if (endMarker) map.remove(endMarker);
+        drawPath = [];
+    }
+</script>
+</body>
+</html>
