@@ -35,7 +35,7 @@
             display: none !important;
         }
 
-        /* Clean Classic AutoNavi Location Dot (No Triangle, No Large Accuracy Circle) */
+        /* Clean Classic AutoNavi Location Dot */
         .amap-user-dot-clean {
             width: 18px;
             height: 18px;
@@ -58,8 +58,6 @@
     var satelliteLayer = null;
     var roadNetLayer = null;
     var startMarker = null;
-    var longPressTimer = null;
-    var touchStartX = 0, touchStartY = 0;
     var autoSuggest = null;
     var geolocation = null;
     var currentLat = 29.50862, currentLng = 106.49776;
@@ -110,20 +108,27 @@
                     geolocation = new AMap.Geolocation({
                         enableHighAccuracy: true,
                         timeout: 10000,
-                        showCircle: false,   /* Hide large blue accuracy circle completely */
-                        showMarker: false,   /* Hide Geolocation extra native marker */
+                        showCircle: false,
+                        showMarker: false,
                         panToLocation: true
                     });
                 } catch(e) {}
 
+                /* Direct Instant Click / Tap on Map to Select Virtual Location */
+                map.on('click', function(e) {
+                    if (e && e.lnglat) {
+                        var lat = e.lnglat.getLat();
+                        var lng = e.lnglat.getLng();
+                        jsSetStart(lat, lng, "地图选点");
+                        if (window.Android) {
+                            window.Android.onPointSelected(lat, lng, "地图选点");
+                        }
+                    }
+                });
+
                 map.on('complete', function() {
                     if (window.Android) window.Android.onMapReady();
                 });
-
-                var container = document.getElementById('container');
-                container.addEventListener('touchstart', onTouchStart, {passive: false});
-                container.addEventListener('touchmove', onTouchMove, {passive: false});
-                container.addEventListener('touchend', onTouchEnd, {passive: false});
             }
         };
         document.head.appendChild(script);
@@ -165,31 +170,6 @@
                 }
             });
         }
-    }
-
-    function onTouchStart(e) {
-        var touch = e.touches[0];
-        touchStartX = touch.clientX;
-        touchStartY = touch.clientY;
-        clearTimeout(longPressTimer);
-        longPressTimer = setTimeout(function() {
-            if (map) {
-                var lnglat = map.containerToLngLat(new AMap.Pixel(touchStartX, touchStartY));
-                if (window.Android) window.Android.onPointSelected(lnglat.getLat(), lnglat.getLng(), "地图选点");
-                jsSetStart(lnglat.getLat(), lnglat.getLng(), "选点");
-            }
-        }, 500);
-    }
-
-    function onTouchMove(e) {
-        var touch = e.touches[0];
-        if (Math.abs(touch.clientX - touchStartX) > 10 || Math.abs(touch.clientY - touchStartY) > 10) {
-            clearTimeout(longPressTimer);
-        }
-    }
-
-    function onTouchEnd(e) {
-        clearTimeout(longPressTimer);
     }
 
     function jsSetStart(lat, lng, name) {
