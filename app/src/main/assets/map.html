@@ -91,6 +91,7 @@
     var polyline = null;
     var startMarker = null, endMarker = null;
     var isDrawingMode = false;
+    var canSelectPoint = true;
     var drawPath = [];
     var longPressTimer = null;
     var touchStartX = 0, touchStartY = 0;
@@ -209,12 +210,19 @@
         }
     }
 
-    function jsSetDrawingMode(enable) {
-        isDrawingMode = enable;
+    function jsSetMode(modeName, enableDraw, canSelect) {
+        isDrawingMode = enableDraw;
+        canSelectPoint = canSelect;
         if (map) {
-            map.setStatus({ dragEnable: !enable, zoomEnable: !enable });
-            jsClearRoute();
+            map.setStatus({ dragEnable: !enableDraw, zoomEnable: !enableDraw });
+            if (enableDraw) {
+                jsClearRoute();
+            }
         }
+    }
+
+    function jsSetDrawingMode(enable) {
+        jsSetMode(enable ? 'ROUTE' : 'STATIC', enable, !enable);
     }
 
     function onTouchStart(e) {
@@ -230,7 +238,7 @@
                 polyline = new AMap.Polyline({ path: [], strokeColor: "#1E88E5", strokeWeight: 6, strokeOpacity: 0.9, lineJoin: 'round' });
                 map.add(polyline);
             }
-        } else {
+        } else if (canSelectPoint) {
             clearTimeout(longPressTimer);
             longPressTimer = setTimeout(function() {
                 if (map) {

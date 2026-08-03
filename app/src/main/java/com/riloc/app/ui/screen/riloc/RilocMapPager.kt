@@ -195,10 +195,11 @@ fun RilocMapPager(
         }
     }
 
-    // Handle map drawing mode toggling
+    // Handle map mode toggling
     LaunchedEffect(currentMode) {
         val enableDraw = (currentMode == MapMode.ROUTE)
-        webViewRef?.evaluateJavascript("jsSetDrawingMode($enableDraw);", null)
+        val canSelect = (currentMode == MapMode.STATIC)
+        webViewRef?.evaluateJavascript("jsSetMode('${currentMode.name}', $enableDraw, $canSelect);", null)
     }
 
     // Sensor compass heading listener for live location arrow orientation
