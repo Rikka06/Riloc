@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.riloc.app.common.BookmarkManager
+import com.riloc.app.common.CoordinateConverter
 import com.riloc.app.common.HistoryManager
 import com.riloc.app.common.Prefs
 import com.riloc.app.engine.LatLng
@@ -222,10 +223,11 @@ fun RilocMapPager(
         }.getOrNull()
 
         if (realLoc != null && realLoc.latitude != 0.0) {
-            LocationHub.update(realLoc.latitude, realLoc.longitude)
-            HistoryManager.add("真实位置", realLoc.latitude, realLoc.longitude)
-            webViewRef?.evaluateJavascript("jsSetStart(${realLoc.latitude}, ${realLoc.longitude}, '真实位置');", null)
-            Toast.makeText(context, "已定位至设备真实当前位置", Toast.LENGTH_SHORT).show()
+            val (gcjLat, gcjLng) = CoordinateConverter.wgs84ToGcj02(realLoc.latitude, realLoc.longitude)
+            LocationHub.update(gcjLat, gcjLng)
+            HistoryManager.add("真实位置", gcjLat, gcjLng)
+            webViewRef?.evaluateJavascript("jsSetStart(${gcjLat}, ${gcjLng}, '真实位置');", null)
+            Toast.makeText(context, "已精准定位至当前设备真实位置", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(context, "未能获取当前真实 GPS 位置，请开启定位权限", Toast.LENGTH_SHORT).show()
         }

@@ -34,6 +34,51 @@
         .amap-logo, .amap-copyright {
             display: none !important;
         }
+
+        /* Official Map App Blue Dot Location Marker */
+        .user-location-marker {
+            position: relative;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .user-location-pulse {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(30, 136, 229, 0.25);
+            border: 1px solid rgba(30, 136, 229, 0.4);
+            animation: userLocPulse 2s infinite ease-out;
+        }
+        @keyframes userLocPulse {
+            0% { transform: scale(0.6); opacity: 0.8; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .user-location-dot {
+            position: relative;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #1E88E5;
+            border: 3px solid #FFFFFF;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+        .user-location-arrow {
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 9px solid #FFFFFF;
+            margin-top: -3px;
+        }
     </style>
 </head>
 <body oncontextmenu="return false;">
@@ -55,7 +100,7 @@
     var autoSuggest = null;
     var currentLat = 29.50862, currentLng = 106.49776;
 
-    var iconStartSvg = '<div style="width:30px;height:40px;"><svg viewBox="0 0 24 24" width="30" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 16 1-3 8-10.75 8-16 0-4.42-3.58-8-8-8z" fill="#1E88E5"/><circle cx="12" cy="8" r="3" fill="#FFFFFF"/></svg></div>';
+    var userLocationHtml = '<div class="user-location-marker"><div class="user-location-pulse"></div><div class="user-location-dot"><div class="user-location-arrow"></div></div></div>';
     var iconEndSvg = '<div style="width:30px;height:40px;"><svg viewBox="0 0 24 24" width="30" height="40" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 16 1-3 8-10.75 8-16 0-4.42-3.58-8-8-8z" fill="#E53935"/><circle cx="12" cy="8" r="3" fill="#FFFFFF"/></svg></div>';
 
     window.onload = function() {
@@ -195,7 +240,7 @@
         if (isDrawingMode && drawPath.length > 2) {
             var startP = drawPath[0], endP = drawPath[drawPath.length-1];
             if (map) {
-                startMarker = new AMap.Marker({ position: [startP.lng, startP.lat], content: iconStartSvg, offset: new AMap.Pixel(-15, -40) });
+                startMarker = new AMap.Marker({ position: [startP.lng, startP.lat], content: userLocationHtml, offset: new AMap.Pixel(-24, -24) });
                 endMarker = new AMap.Marker({ position: [endP.lng, endP.lat], content: iconEndSvg, offset: new AMap.Pixel(-15, -40) });
                 map.add([startMarker, endMarker]);
             }
@@ -208,7 +253,7 @@
         currentLng = lng;
         if (map) {
             if (startMarker) map.remove(startMarker);
-            startMarker = new AMap.Marker({ position: [lng, lat], content: iconStartSvg, offset: new AMap.Pixel(-15, -40) });
+            startMarker = new AMap.Marker({ position: [lng, lat], content: userLocationHtml, offset: new AMap.Pixel(-24, -24) });
             map.add(startMarker);
             map.panTo([lng, lat]);
         }
