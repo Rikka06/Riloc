@@ -26,6 +26,19 @@
         android:theme="@style/Theme.KernelSU"
         tools:targetApi="R">
 
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Riloc - 高精度免检测虚拟定位模块" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+
         <service
             android:name=".engine.FloatingJoystickService"
             android:exported="false"
