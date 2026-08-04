@@ -38,6 +38,16 @@ class VendorSdkHooks(
         return LocationState.isPlaying && LocationState.hookVendorSdks && LocationState.isTarget(packageName)
     }
 
+    private fun safeGcjLat(): Double {
+        val lat = LocationState.gcjLatitude
+        return if (lat.isFinite() && kotlin.math.abs(lat) > 0.1) lat else 39.9042
+    }
+
+    private fun safeGcjLon(): Double {
+        val lon = LocationState.gcjLongitude
+        return if (lon.isFinite() && kotlin.math.abs(lon) > 0.1) lon else 116.4074
+    }
+
     // ── Baidu Location SDK ─────────────────────────────────────────────
 
     private fun hookBaiduSdk() {
@@ -45,11 +55,11 @@ class VendorSdkHooks(
 
         HookUtil.hookAll(module, clazz, "getLatitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.gcjLatitude else original
+            if (active()) safeGcjLat() else original
         }
         HookUtil.hookAll(module, clazz, "getLongitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.gcjLongitude else original
+            if (active()) safeGcjLon() else original
         }
         HookUtil.hookAll(module, clazz, "getLocType", tag) { chain ->
             val original = chain.proceed()
@@ -77,11 +87,11 @@ class VendorSdkHooks(
 
         HookUtil.hookAll(module, clazz, "getLatitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.gcjLatitude else original
+            if (active()) safeGcjLat() else original
         }
         HookUtil.hookAll(module, clazz, "getLongitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.gcjLongitude else original
+            if (active()) safeGcjLon() else original
         }
         HookUtil.hookAll(module, clazz, "getErrorCode", tag) { chain ->
             val original = chain.proceed()
@@ -108,11 +118,11 @@ class VendorSdkHooks(
 
         HookUtil.hookAll(module, clazz, "getLatitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.gcjLatitude else original
+            if (active()) safeGcjLat() else original
         }
         HookUtil.hookAll(module, clazz, "getLongitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.gcjLongitude else original
+            if (active()) safeGcjLon() else original
         }
         HookUtil.hookAll(module, clazz, "getAccuracy", tag) { chain ->
             val original = chain.proceed()

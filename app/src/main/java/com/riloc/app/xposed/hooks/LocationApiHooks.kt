@@ -26,8 +26,14 @@ class LocationApiHooks(
     fun init() {
         runCatching {
             val locationClass = Class.forName("android.location.Location", false, classLoader)
-            hookGetter(locationClass, "getLatitude") { LocationState.latitude }
-            hookGetter(locationClass, "getLongitude") { LocationState.longitude }
+            hookGetter(locationClass, "getLatitude") {
+                val lat = LocationState.latitude
+                if (lat.isFinite() && kotlin.math.abs(lat) > 0.1) lat else 39.9042
+            }
+            hookGetter(locationClass, "getLongitude") {
+                val lon = LocationState.longitude
+                if (lon.isFinite() && kotlin.math.abs(lon) > 0.1) lon else 116.4074
+            }
             hookGetter(locationClass, "getAccuracy", enabled = { LocationState.accuracy > 0f }) { LocationState.accuracy }
             hookGetter(locationClass, "getAltitude", enabled = { LocationState.altitude != 0.0 }) { LocationState.altitude }
             hookGetter(locationClass, "getSpeed", enabled = { LocationState.speed > 0f }) { LocationState.speed }
@@ -45,10 +51,12 @@ class LocationApiHooks(
             HookUtil.hookAll(module, lmClass, "getLastKnownLocation", tag) { chain ->
                 val original = chain.proceed()
                 LocationState.update()
-                if (LocationState.isPlaying && LocationState.isTarget(packageName)) {
+                if (LocationState.isTarget(packageName)) {
                     val loc = (original as? Location) ?: Location("gps")
-                    loc.latitude = LocationState.latitude
-                    loc.longitude = LocationState.longitude
+                    val lat = LocationState.latitude
+                    val lon = LocationState.longitude
+                    loc.latitude = if (lat.isFinite() && kotlin.math.abs(lat) > 0.1) lat else 39.9042
+                    loc.longitude = if (lon.isFinite() && kotlin.math.abs(lon) > 0.1) lon else 116.4074
                     loc.time = System.currentTimeMillis()
                     loc
                 } else {

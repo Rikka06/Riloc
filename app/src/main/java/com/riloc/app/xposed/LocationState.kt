@@ -64,7 +64,7 @@ object LocationState {
     private var prefs: SharedPreferences? = null
 
     @Volatile
-    var isPlaying: Boolean = false
+    var isPlaying: Boolean = true
         private set
 
     @Volatile
@@ -180,68 +180,72 @@ object LocationState {
             }
         }
 
-        val p = prefs ?: return
-        runCatching {
-            if (!loadedFromTmp) {
-                isPlaying = p.getBoolean(KEY_IS_PLAYING, false)
-            }
-            hideMockFlag = p.getBoolean(KEY_HIDE_MOCK_FLAG, true)
-            normalizeProvider = p.getBoolean(KEY_NORMALIZE_PROVIDER, true)
-            hideAppOps = p.getBoolean(KEY_HIDE_APP_OPS, true)
-            hideSettings = p.getBoolean(KEY_HIDE_SETTINGS, true)
-            hideWifi = p.getBoolean(KEY_HIDE_WIFI, false)
-            hideTelephony = p.getBoolean(KEY_HIDE_TELEPHONY, false)
-            enableSystemHooks = p.getBoolean(KEY_ENABLE_SYSTEM_HOOKS, false)
-            hookVendorSdks = p.getBoolean(KEY_HOOK_VENDOR_SDKS, true)
-            hookNmea = p.getBoolean(KEY_HOOK_NMEA, true)
-            hidePackages = p.getBoolean(KEY_HIDE_PACKAGES, true)
-            hideStackTrace = p.getBoolean(KEY_HIDE_STACK_TRACE, true)
-            simulateSensors = p.getBoolean(KEY_SIMULATE_SENSORS, false)
-            targetApps = p.getString(KEY_TARGET_APPS, null)
-                ?.split(',')
-                ?.map { it.trim() }
-                ?.filter { it.isNotEmpty() }
-                ?.toSet() ?: emptySet()
-
-            if (!loadedFromTmp) {
-                val rawLat = p.getLong(KEY_LATITUDE, DEFAULT_LATITUDE.toRawBits()).let { Double.fromBits(it) }
-                val rawLon = p.getLong(KEY_LONGITUDE, DEFAULT_LONGITUDE.toRawBits()).let { Double.fromBits(it) }
-
-                if (rawLat.isFinite() && rawLon.isFinite() && kotlin.math.abs(rawLat) > 0.001 && kotlin.math.abs(rawLon) > 0.001) {
-                    gcjLatitude = rawLat
-                    gcjLongitude = rawLon
-                    val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(rawLat, rawLon)
-                    latitude = wgsLat
-                    longitude = wgsLon
-                } else {
-                    gcjLatitude = DEFAULT_LATITUDE
-                    gcjLongitude = DEFAULT_LONGITUDE
-                    val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(DEFAULT_LATITUDE, DEFAULT_LONGITUDE)
-                    latitude = wgsLat
-                    longitude = wgsLon
+        val p = prefs
+        if (p != null) {
+            runCatching {
+                if (!loadedFromTmp) {
+                    isPlaying = p.getBoolean(KEY_IS_PLAYING, true)
                 }
-            }
+                hideMockFlag = p.getBoolean(KEY_HIDE_MOCK_FLAG, true)
+                normalizeProvider = p.getBoolean(KEY_NORMALIZE_PROVIDER, true)
+                hideAppOps = p.getBoolean(KEY_HIDE_APP_OPS, true)
+                hideSettings = p.getBoolean(KEY_HIDE_SETTINGS, true)
+                hideWifi = p.getBoolean(KEY_HIDE_WIFI, false)
+                hideTelephony = p.getBoolean(KEY_HIDE_TELEPHONY, false)
+                enableSystemHooks = p.getBoolean(KEY_ENABLE_SYSTEM_HOOKS, false)
+                hookVendorSdks = p.getBoolean(KEY_HOOK_VENDOR_SDKS, true)
+                hookNmea = p.getBoolean(KEY_HOOK_NMEA, true)
+                hidePackages = p.getBoolean(KEY_HIDE_PACKAGES, true)
+                hideStackTrace = p.getBoolean(KEY_HIDE_STACK_TRACE, true)
+                simulateSensors = p.getBoolean(KEY_SIMULATE_SENSORS, false)
+                targetApps = p.getString(KEY_TARGET_APPS, null)
+                    ?.split(',')
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?.toSet() ?: emptySet()
 
-            if (p.getBoolean(KEY_USE_ACCURACY, false)) {
-                accuracy = p.getLong(KEY_ACCURACY, 0L).let { Double.fromBits(it).toFloat() }
-            } else accuracy = 0f
+                if (!loadedFromTmp) {
+                    val rawLat = p.getLong(KEY_LATITUDE, DEFAULT_LATITUDE.toRawBits()).let { Double.fromBits(it) }
+                    val rawLon = p.getLong(KEY_LONGITUDE, DEFAULT_LONGITUDE.toRawBits()).let { Double.fromBits(it) }
 
-            if (p.getBoolean(KEY_USE_ALTITUDE, false)) {
-                altitude = p.getLong(KEY_ALTITUDE, 0L).let { Double.fromBits(it) }
-            } else altitude = 0.0
+                    if (rawLat.isFinite() && rawLon.isFinite() && kotlin.math.abs(rawLat) > 0.001 && kotlin.math.abs(rawLon) > 0.001) {
+                        gcjLatitude = rawLat
+                        gcjLongitude = rawLon
+                        val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(rawLat, rawLon)
+                        latitude = wgsLat
+                        longitude = wgsLon
+                    } else {
+                        gcjLatitude = DEFAULT_LATITUDE
+                        gcjLongitude = DEFAULT_LONGITUDE
+                        val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(DEFAULT_LATITUDE, DEFAULT_LONGITUDE)
+                        latitude = wgsLat
+                        longitude = wgsLon
+                    }
+                }
 
-            if (p.getBoolean(KEY_USE_SPEED, false)) {
-                speed = p.getFloat(KEY_SPEED, 0f)
-            } else speed = 0f
+                if (p.getBoolean(KEY_USE_ACCURACY, false)) {
+                    accuracy = p.getLong(KEY_ACCURACY, 0L).let { Double.fromBits(it).toFloat() }
+                } else accuracy = 0f
 
-            if (p.getBoolean(KEY_USE_VERTICAL_ACCURACY, false)) {
-                verticalAccuracy = p.getFloat(KEY_VERTICAL_ACCURACY, 0f)
-            } else verticalAccuracy = 0f
+                if (p.getBoolean(KEY_USE_ALTITUDE, false)) {
+                    altitude = p.getLong(KEY_ALTITUDE, 0L).let { Double.fromBits(it) }
+                } else altitude = 0.0
 
-            if (p.getBoolean(KEY_USE_SPEED_ACCURACY, false)) {
-                speedAccuracy = p.getFloat(KEY_SPEED_ACCURACY, 0f)
-            } else speedAccuracy = 0f
-        }.onFailure { log("update failed: ${it.message}", Log.ERROR) }
+                if (p.getBoolean(KEY_USE_SPEED, false)) {
+                    speed = p.getFloat(KEY_SPEED, 0f)
+                } else speed = 0f
+
+                if (p.getBoolean(KEY_USE_VERTICAL_ACCURACY, false)) {
+                    verticalAccuracy = p.getFloat(KEY_VERTICAL_ACCURACY, 0f)
+                } else verticalAccuracy = 0f
+
+                if (p.getBoolean(KEY_USE_SPEED_ACCURACY, false)) {
+                    speedAccuracy = p.getFloat(KEY_SPEED_ACCURACY, 0f)
+                } else speedAccuracy = 0f
+            }.onFailure { log("update failed: ${it.message}", Log.ERROR) }
+        } else if (!loadedFromTmp) {
+            isPlaying = true
+        }
     }
 
     /**
