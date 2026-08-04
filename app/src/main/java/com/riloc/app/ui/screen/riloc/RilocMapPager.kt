@@ -465,33 +465,30 @@ fun RilocMapPager(
                             )
                         }
                     }
-                    MiuixChip("收藏", selected = false) {
-                        BookmarkManager.save(addressName.take(12), current.lat, current.lon)
-                        Toast.makeText(context, "已收藏当前位置", Toast.LENGTH_SHORT).show()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MiuixChip("收藏", selected = false) {
+                            BookmarkManager.save(addressName.take(12), current.lat, current.lon)
+                            Toast.makeText(context, "已收藏当前位置", Toast.LENGTH_SHORT).show()
+                        }
+
+                        MiuixChip(
+                            text = if (isPlaying) "停止模拟" else "开始模拟",
+                            selected = isPlaying,
+                        ) {
+                            isPlaying = !isPlaying
+                            Prefs.setPlaying(isPlaying)
+                            if (isPlaying) {
+                                LocationHub.update(current.lat, current.lon)
+                                Toast.makeText(context, "已开启虚拟定位", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "虚拟定位已停止", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 }
-            }
-        }
-
-        // ── Right-Side Floating Map Tool Column ──
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            MapActionButton(icon = Icons.Default.Add, contentDescription = "放大") {
-                webViewRef?.evaluateJavascript("jsZoomIn();", null)
-            }
-            MapActionButton(icon = Icons.Default.Remove, contentDescription = "缩小") {
-                webViewRef?.evaluateJavascript("jsZoomOut();", null)
-            }
-            MapActionButton(icon = Icons.Default.MyLocation, contentDescription = "回到中心") {
-                webViewRef?.evaluateJavascript("jsSetStart(${current.lat}, ${current.lon}, '当前位置');", null)
-            }
-            MapActionButton(icon = Icons.Default.Layers, contentDescription = "图层选择") {
-                showStyleSelector = !showStyleSelector
             }
         }
 
