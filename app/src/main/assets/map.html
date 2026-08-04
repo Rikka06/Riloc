@@ -60,6 +60,7 @@
     var startMarker = null;
     var autoSuggest = null;
     var geolocation = null;
+    var geocoder = null;
     var currentLat = 29.50862, currentLng = 106.49776;
 
     var userLocationHtml = '<div class="amap-user-dot-clean"></div>';
@@ -85,7 +86,7 @@
             window._AMapSecurityConfig = { securityJsCode: secret };
         }
         var script = document.createElement('script');
-        script.src = "https://webapi.amap.com/maps?v=2.0&key=" + key + "&plugin=AMap.AutoComplete,AMap.Geolocation";
+        script.src = "https://webapi.amap.com/maps?v=2.0&key=" + key + "&plugin=AMap.AutoComplete,AMap.Geolocation,AMap.Geocoder";
         script.onload = function() {
             if (typeof AMap !== 'undefined' && AMap.Map) {
                 defaultLayer = AMap.createDefaultLayer();
@@ -114,14 +115,35 @@
                     });
                 } catch(e) {}
 
+                try {
+                    geocoder = new AMap.Geocoder();
+                } catch(e) {}
+
                 /* Direct Instant Click / Tap on Map to Select Virtual Location */
                 map.on('click', function(e) {
                     if (e && e.lnglat) {
                         var lat = e.lnglat.getLat();
                         var lng = e.lnglat.getLng();
                         jsSetStart(lat, lng, "地图选点");
-                        if (window.Android) {
-                            window.Android.onPointSelected(lat, lng, "地图选点");
+                        if (geocoder) {
+                            geocoder.getAddress([lng, lat], function(status, result) {
+                                var name = "地图选点";
+                                if (status === 'complete' && result && result.regeocode) {
+                                    var pois = result.regeocode.pois;
+                                    if (pois && pois.length > 0) {
+                                        name = pois[0].name;
+                                    } else if (result.regeocode.formattedAddress) {
+                                        name = result.regeocode.formattedAddress;
+                                    }
+                                }
+                                if (window.Android) {
+                                    window.Android.onPointSelected(lat, lng, name);
+                                }
+                            });
+                        } else {
+                            if (window.Android) {
+                                window.Android.onPointSelected(lat, lng, "地图选点");
+                            }
                         }
                     }
                 });
@@ -149,7 +171,22 @@
                     var lat = result.position.lat;
                     var lng = result.position.lng;
                     jsSetStart(lat, lng, '真实位置');
-                    if (window.Android) window.Android.onPointSelected(lat, lng, '真实位置');
+                    if (geocoder) {
+                        geocoder.getAddress([lng, lat], function(gStatus, gResult) {
+                            var name = "真实位置";
+                            if (gStatus === 'complete' && gResult && gResult.regeocode) {
+                                var pois = gResult.regeocode.pois;
+                                if (pois && pois.length > 0) {
+                                    name = pois[0].name;
+                                } else if (gResult.regeocode.formattedAddress) {
+                                    name = gResult.regeocode.formattedAddress;
+                                }
+                            }
+                            if (window.Android) window.Android.onPointSelected(lat, lng, name);
+                        });
+                    } else {
+                        if (window.Android) window.Android.onPointSelected(lat, lng, '真实位置');
+                    }
                 }
             });
         }

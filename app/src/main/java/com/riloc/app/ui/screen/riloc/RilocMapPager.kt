@@ -134,8 +134,12 @@ fun RilocMapPager(
                 isMapReady = true
             },
             onPointSelectedCallback = { lat, lng, name ->
-                scope.launch {
-                    addressName = ReverseGeocoder.getAddress(context, lat, lng)
+                if (name.isNotBlank() && name != "地图选点") {
+                    addressName = name
+                } else {
+                    scope.launch {
+                        addressName = ReverseGeocoder.getAddress(context, lat, lng)
+                    }
                 }
             },
             onReceiveTipsCallback = { tipsStr ->
@@ -179,12 +183,14 @@ fun RilocMapPager(
         )
     }
 
-    // Reverse geocode address when coordinates update
+    // Reverse geocode address when coordinates update if addressName is empty or default
     LaunchedEffect(current) {
-        scope.launch {
-            addressName = ReverseGeocoder.getAddress(context, current.lat, current.lon)
+        if (addressName.isBlank() || addressName == "定位中..." || addressName.startsWith("[Riloc]")) {
+            scope.launch {
+                addressName = ReverseGeocoder.getAddress(context, current.lat, current.lon)
+            }
         }
-        webViewRef?.evaluateJavascript("jsSetStart(${current.lat}, ${current.lon}, '当前位置');", null)
+        webViewRef?.evaluateJavascript("jsSetStart(${current.lat}, ${current.lon}, '${addressName.replace("'", "\\'")}');", null)
     }
 
     // Query live search suggestions as user types
@@ -231,9 +237,10 @@ fun RilocMapPager(
                 isSearching = false
                 searchSuggestions = emptyList()
                 if (coords != null) {
+                    addressName = searchQuery
                     LocationHub.update(coords.first, coords.second)
                     HistoryManager.add(searchQuery, coords.first, coords.second)
-                    webViewRef?.evaluateJavascript("jsSetStart(${coords.first}, ${coords.second}, '${searchQuery}');", null)
+                    webViewRef?.evaluateJavascript("jsSetStart(${coords.first}, ${coords.second}, '${searchQuery.replace("'", "\\'")}');", null)
                     Toast.makeText(context, "已定位至：$searchQuery", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(context, "未找到结果：$searchQuery", Toast.LENGTH_SHORT).show()
@@ -408,11 +415,12 @@ fun RilocMapPager(
                                         .fillMaxWidth()
                                         .clickable {
                                             searchQuery = res.name
+                                            addressName = res.name
                                             searchSuggestions = emptyList()
                                             keyboardController?.hide()
                                             LocationHub.update(res.lat, res.lon)
                                             HistoryManager.add(res.name, res.lat, res.lon)
-                                            webViewRef?.evaluateJavascript("jsSetStart(${res.lat}, ${res.lon}, '${res.name}');", null)
+                                            webViewRef?.evaluateJavascript("jsSetStart(${res.lat}, ${res.lon}, '${res.name.replace("'", "\\'")}');", null)
                                         }
                                         .padding(horizontal = 12.dp, vertical = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
