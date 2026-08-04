@@ -6,6 +6,9 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import com.riloc.app.common.DEFAULT_LATITUDE
+import com.riloc.app.common.DEFAULT_LONGITUDE
+import com.riloc.app.common.CoordinateConverter
 import com.riloc.app.common.KEY_ACCURACY
 import com.riloc.app.common.KEY_ALTITUDE
 import com.riloc.app.common.KEY_ENABLE_SYSTEM_HOOKS
@@ -115,9 +118,13 @@ object LocationState {
     @Volatile
     private var targetApps: Set<String> = emptySet()
 
-    var latitude: Double = 0.0
+    var latitude: Double = DEFAULT_LATITUDE
         private set
-    var longitude: Double = 0.0
+    var longitude: Double = DEFAULT_LONGITUDE
+        private set
+    var gcjLatitude: Double = DEFAULT_LATITUDE
+        private set
+    var gcjLongitude: Double = DEFAULT_LONGITUDE
         private set
     var accuracy: Float = 0f
         private set
@@ -164,8 +171,22 @@ object LocationState {
                 ?.toSet() ?: emptySet()
 
 
-            latitude = p.getLong(KEY_LATITUDE, 0L).let { Double.fromBits(it) }
-            longitude = p.getLong(KEY_LONGITUDE, 0L).let { Double.fromBits(it) }
+            val rawLat = p.getLong(KEY_LATITUDE, DEFAULT_LATITUDE.toRawBits()).let { Double.fromBits(it) }
+            val rawLon = p.getLong(KEY_LONGITUDE, DEFAULT_LONGITUDE.toRawBits()).let { Double.fromBits(it) }
+
+            if (rawLat.isFinite() && rawLon.isFinite() && kotlin.math.abs(rawLat) > 0.001 && kotlin.math.abs(rawLon) > 0.001) {
+                gcjLatitude = rawLat
+                gcjLongitude = rawLon
+                val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(rawLat, rawLon)
+                latitude = wgsLat
+                longitude = wgsLon
+            } else {
+                gcjLatitude = DEFAULT_LATITUDE
+                gcjLongitude = DEFAULT_LONGITUDE
+                val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(DEFAULT_LATITUDE, DEFAULT_LONGITUDE)
+                latitude = wgsLat
+                longitude = wgsLon
+            }
 
             if (p.getBoolean(KEY_USE_ACCURACY, false)) {
                 accuracy = p.getLong(KEY_ACCURACY, 0L).let { Double.fromBits(it).toFloat() }

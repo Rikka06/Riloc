@@ -45,11 +45,11 @@ class VendorSdkHooks(
 
         HookUtil.hookAll(module, clazz, "getLatitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.latitude else original
+            if (active()) LocationState.gcjLatitude else original
         }
         HookUtil.hookAll(module, clazz, "getLongitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.longitude else original
+            if (active()) LocationState.gcjLongitude else original
         }
         HookUtil.hookAll(module, clazz, "getLocType", tag) { chain ->
             val original = chain.proceed()
@@ -77,11 +77,11 @@ class VendorSdkHooks(
 
         HookUtil.hookAll(module, clazz, "getLatitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.latitude else original
+            if (active()) LocationState.gcjLatitude else original
         }
         HookUtil.hookAll(module, clazz, "getLongitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.longitude else original
+            if (active()) LocationState.gcjLongitude else original
         }
         HookUtil.hookAll(module, clazz, "getErrorCode", tag) { chain ->
             val original = chain.proceed()
@@ -108,11 +108,11 @@ class VendorSdkHooks(
 
         HookUtil.hookAll(module, clazz, "getLatitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.latitude else original
+            if (active()) LocationState.gcjLatitude else original
         }
         HookUtil.hookAll(module, clazz, "getLongitude", tag) { chain ->
             val original = chain.proceed()
-            if (active()) LocationState.longitude else original
+            if (active()) LocationState.gcjLongitude else original
         }
         HookUtil.hookAll(module, clazz, "getAccuracy", tag) { chain ->
             val original = chain.proceed()
