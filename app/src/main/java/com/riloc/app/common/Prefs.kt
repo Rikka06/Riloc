@@ -38,8 +38,26 @@ object Prefs {
 
     // ── playing state ─────────────────────────────────────────────────
 
+    private const val TMP_CONF_PATH = "/data/local/tmp/riloc_loc.conf"
+
+    fun writeTmpConfigFile(gcjLat: Double, gcjLon: Double, playing: Boolean) {
+        runCatching {
+            val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(gcjLat, gcjLon)
+            val line = "%.6f,%.6f,%.6f,%.6f,%d".format(
+                java.util.Locale.US, gcjLat, gcjLon, wgsLat, wgsLon, if (playing) 1 else 0
+            )
+            val file = java.io.File(TMP_CONF_PATH)
+            file.writeText(line)
+            file.setReadable(true, false)
+            file.setWritable(true, false)
+        }
+    }
+
     fun isPlaying(): Boolean = active.getBoolean(KEY_IS_PLAYING, false)
-    fun setPlaying(value: Boolean) = edit { putBoolean(KEY_IS_PLAYING, value) }
+    fun setPlaying(value: Boolean) {
+        edit { putBoolean(KEY_IS_PLAYING, value) }
+        writeTmpConfigFile(latitude(), longitude(), value)
+    }
 
     // ── fake coordinates ──────────────────────────────────────────────
 
@@ -52,9 +70,12 @@ object Prefs {
         .takeIf { it.isFinite() && kotlin.math.abs(it) > 0.001 } ?: DEFAULT_LONGITUDE
 
 
-    fun setLocation(lat: Double, lon: Double) = edit {
-        putLong(KEY_LATITUDE, lat.toRawBits())
-        putLong(KEY_LONGITUDE, lon.toRawBits())
+    fun setLocation(lat: Double, lon: Double) {
+        edit {
+            putLong(KEY_LATITUDE, lat.toRawBits())
+            putLong(KEY_LONGITUDE, lon.toRawBits())
+        }
+        writeTmpConfigFile(lat, lon, isPlaying())
     }
 
     // ── location parameters ───────────────────────────────────────────

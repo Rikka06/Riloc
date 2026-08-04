@@ -37,7 +37,26 @@ class LocationApiHooks(
                 hookGetter(locationClass, "getMslAltitudeMeters", enabled = { false }) { 0.0 }
                 hookGetter(locationClass, "getMslAltitudeAccuracyMeters", enabled = { false }) { 0.0f }
             }
+            hookGetter(locationClass, "isFromMockProvider") { false }
         }.onFailure { module.log(Log.ERROR, tag, "Location getter hooks failed: ${it.message}") }
+
+        runCatching {
+            val lmClass = Class.forName("android.location.LocationManager", false, classLoader)
+            HookUtil.hookAll(module, lmClass, "getLastKnownLocation", tag) { chain ->
+                val original = chain.proceed()
+                LocationState.update()
+                if (LocationState.isPlaying && LocationState.isTarget(packageName)) {
+                    val loc = (original as? Location) ?: Location("gps")
+                    loc.latitude = LocationState.latitude
+                    loc.longitude = LocationState.longitude
+                    loc.time = System.currentTimeMillis()
+                    loc
+                } else {
+                    original
+                }
+            }
+        }.onFailure { module.log(Log.ERROR, tag, "LocationManager getLastKnownLocation hook failed: ${it.message}") }
+
         module.log(Log.INFO, tag, "Location API hooks installed for $packageName")
     }
 

@@ -144,14 +144,47 @@ object LocationState {
         update()
     }
 
-    fun isTarget(packageName: String?): Boolean = packageName in targetApps
+    private const val TMP_CONF_PATH = "/data/local/tmp/riloc_loc.conf"
 
-    /** Refreshes all cached fields from the remote preferences. Cheap enough to run per hook call. */
+    fun isTarget(packageName: String?): Boolean {
+        if (targetApps.isEmpty()) return true
+        if (packageName == null) return false
+        return packageName in targetApps || packageName == "android" || packageName == "com.autonavi.minimap" || packageName == "com.baidu.BaiduMap" || packageName == "com.tencent.mm"
+    }
+
+    /** Refreshes all cached fields from shared file or remote preferences. */
     @Synchronized
     fun update() {
+        var loadedFromTmp = false
+        runCatching {
+            val file = java.io.File(TMP_CONF_PATH)
+            if (file.exists() && file.canRead()) {
+                val content = file.readText().trim()
+                val parts = content.split(",")
+                if (parts.size >= 5) {
+                    val gLat = parts[0].toDoubleOrNull()
+                    val gLon = parts[1].toDoubleOrNull()
+                    val wLat = parts[2].toDoubleOrNull()
+                    val wLon = parts[3].toDoubleOrNull()
+                    val playingFlag = parts[4].toIntOrNull()
+                    if (gLat != null && gLon != null && wLat != null && wLon != null &&
+                        gLat.isFinite() && gLon.isFinite() && kotlin.math.abs(gLat) > 0.001 && kotlin.math.abs(gLon) > 0.001) {
+                        gcjLatitude = gLat
+                        gcjLongitude = gLon
+                        latitude = wLat
+                        longitude = wLon
+                        isPlaying = (playingFlag == 1)
+                        loadedFromTmp = true
+                    }
+                }
+            }
+        }
+
         val p = prefs ?: return
         runCatching {
-            isPlaying = p.getBoolean(KEY_IS_PLAYING, false)
+            if (!loadedFromTmp) {
+                isPlaying = p.getBoolean(KEY_IS_PLAYING, false)
+            }
             hideMockFlag = p.getBoolean(KEY_HIDE_MOCK_FLAG, true)
             normalizeProvider = p.getBoolean(KEY_NORMALIZE_PROVIDER, true)
             hideAppOps = p.getBoolean(KEY_HIDE_APP_OPS, true)
@@ -170,22 +203,23 @@ object LocationState {
                 ?.filter { it.isNotEmpty() }
                 ?.toSet() ?: emptySet()
 
+            if (!loadedFromTmp) {
+                val rawLat = p.getLong(KEY_LATITUDE, DEFAULT_LATITUDE.toRawBits()).let { Double.fromBits(it) }
+                val rawLon = p.getLong(KEY_LONGITUDE, DEFAULT_LONGITUDE.toRawBits()).let { Double.fromBits(it) }
 
-            val rawLat = p.getLong(KEY_LATITUDE, DEFAULT_LATITUDE.toRawBits()).let { Double.fromBits(it) }
-            val rawLon = p.getLong(KEY_LONGITUDE, DEFAULT_LONGITUDE.toRawBits()).let { Double.fromBits(it) }
-
-            if (rawLat.isFinite() && rawLon.isFinite() && kotlin.math.abs(rawLat) > 0.001 && kotlin.math.abs(rawLon) > 0.001) {
-                gcjLatitude = rawLat
-                gcjLongitude = rawLon
-                val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(rawLat, rawLon)
-                latitude = wgsLat
-                longitude = wgsLon
-            } else {
-                gcjLatitude = DEFAULT_LATITUDE
-                gcjLongitude = DEFAULT_LONGITUDE
-                val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(DEFAULT_LATITUDE, DEFAULT_LONGITUDE)
-                latitude = wgsLat
-                longitude = wgsLon
+                if (rawLat.isFinite() && rawLon.isFinite() && kotlin.math.abs(rawLat) > 0.001 && kotlin.math.abs(rawLon) > 0.001) {
+                    gcjLatitude = rawLat
+                    gcjLongitude = rawLon
+                    val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(rawLat, rawLon)
+                    latitude = wgsLat
+                    longitude = wgsLon
+                } else {
+                    gcjLatitude = DEFAULT_LATITUDE
+                    gcjLongitude = DEFAULT_LONGITUDE
+                    val (wgsLat, wgsLon) = CoordinateConverter.gcj02ToWgs84(DEFAULT_LATITUDE, DEFAULT_LONGITUDE)
+                    latitude = wgsLat
+                    longitude = wgsLon
+                }
             }
 
             if (p.getBoolean(KEY_USE_ACCURACY, false)) {
